@@ -1,0 +1,40 @@
+== Systemd Service Unit Files for pianod ==
+The files pianod.service and pianod.env provide for running pianod as a service 
+on systemd flavors of Linux.  As of writing, many distributions are in the 
+process of converting to systemd.  pianod.service has been tested on 
+ArchLinuxARM running on RaspberryPi, as well as a desktop install of Fedora 
+Core 17.
+
+If you are trying to set up pianod as a service on an older init.d system (e.g.
+Raspbian, Ubuntu), please see README.init
+
+
+== Installation ==
+To add the service to your systemd Linux system, copy pianod.service to 
+  /usr/lib/systemd/system/pianod.service
+
+pianod.service expects to have some environment variables set for it so copy
+pianod.env to
+  /etc/pianod.env
+
+You can edit pianod.env to change the runtime options.
+
+You should then be able to control the pianod service using systemctl:
+  systemctl start pianod
+  systemctl status pianod
+  systemctl stop pianod
+
+To set up the service to run at boot:
+  systemctl enable pianod
+
+To disable:
+  systemctl disable pianod
+
+
+== Support ==
+These files are provided as is.  If you need support, you can try asking on the 
+pianod mailing list:
+  http://lists.deviousfish.com/listinfo.cgi/pianod-deviousfish.com
+
+For RaspberryPi support, you could also try the RaspberryPi forums:
+  http://www.raspberrypi.org/phpBB3/

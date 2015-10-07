@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN"
+	 "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+		<string>com.deviousfish.pianod</string>
+	<key>ProgramArguments</key>
+		<array>
+			<string>/usr/local/bin/pianod</string>
+		</array>
+	<key>RunAtLoad</key>
+		<false/> 
+	<!-- OS X 10.4, change KeepAlive to OnDemand -->
+	<key>KeepAlive</key>
+		<true />
+	<!-- <key>StandardInPath</key>
+		<string>/dev/null</string> -->
+	<key>StandardOutPath</key>
+		<string>/Users/x10/Logs/pianod.log</string>
+	<key>StandardErrorPath</key>
+		<string>/Users/x10/Logs/pianod.log</string>
+	<!-- <key>Debug</key>
+		<true /> -->
+	<!-- <key>UserName</key>
+		<string>nobody</string> -->
+</dict> 
+</plist>
+

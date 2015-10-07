@@ -1,0 +1,10 @@
+#!/bin/ksh
+echo |\
+openssl s_client -connect tuner.pandora.com:443 2>&1 |\
+sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' |\
+openssl x509 -noout -fingerprint |\
+sed 's/://g' |\
+cut -d= -f2 | read fingerprint
+echo "The fingerprint is: $fingerprint."
+piano -cv "set tls fingerprint \"$fingerprint\""
+

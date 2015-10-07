@@ -1,0 +1,86 @@
+Building & Installing pianod
+============================
+
+Dependencies
+------------
+- pthreads
+- libao
+- gcrypt
+- gnutls
+- json-c
+- libfaad2 and/or libmad
+- UTF-8 console/locale
+
+These can each be downloaded and set up, but most systems have package
+managers that streamline this process.  On OS X, see MacPorts; on Ubuntu or
+Debian, see apt-get; Gentoo, emerge; Fedora and RedHat, RPM; FreeBSD, try
+pkg or pkg_add.  For other Linux distributions, check
+[Wikipedia's list](http://en.wikipedia.org/wiki/List_of_Linux_distributions)
+to determine the packaging system used.
+
+Building
+--------
+If you have all of the dependencies listed above, use:
+
+	./configure && make
+
+You can run the client directly from the source directory now
+ 
+	./pianod
+
+Or install it by issuing
+	
+	sudo make install
+
+On startup, pianod reads your `~/.config/pianod/startscript`.  A sample is found
+in the contrib directory.
+
+
+### Mac OS X
+You'll need to install XCode developer tools found your installation DVD
+or downloaded from the App store or developer.apple.com.  Tools are free.
+
+Once the developer tools are installed, you can easily
+install all the dependencies using [MacPorts](http://macports.org),
+which you'll also need to install.
+
+To install pianod and the websocket gateway (for the web remote) with MacPorts:
+
+	sudo port install -v wsgw +pianod
+
+To install from a tarball, using MacPorts for dependencies, set these
+environment variables before invoking configure:
+
+	export CPPFLAGS=-I/opt/local/include
+	export LDFLAGS=-L/opt/local/lib
+
+
+Build Troubleshooting
+---------------------
+Messages may vary slightly by system and compiler.
+
+### General Troubles
+
+/usr/local/include/gcrypt.h:1401: warning: ‘gcry_ac_data_read_cb_t’ is deprecated
+: Ignore.  There are typically several of these, all from gcrypt.h with
+the prefix gcry_.
+
+### Rare Mac Troubles
+The builds attempts the current architecture reported by `uname -m`.
+This is normally the Right Thing, however, if the dependency libraries
+are mismatched (such as if MacPorts was installed in i386 mode of a
+prior OS or machine, and now you're manually installing on x86_64),
+you will need to override this:
+	export CFLAGS="-arch x86_64"
+
+If for some reason you went the other way (like the kernel keeps panicking
+under x86_64 mode), use:
+	export CFLAGS="-arch i386"
+
+### TLS Configuration
+To use transport layer encryption, you must provide certificate and key
+files.  The script `create-pianod-tls-cert` in the contrib directory
+will create the necessary files, the certificate issued by a bogus CA.
+The certificate is for the current hostname, or another host specified
+as the first parameter.
+

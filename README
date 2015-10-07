@@ -1,0 +1,55 @@
+pianod
+======
+pianod is a UNIX-daemon style client for the personalized web radio [Pandora].
+
+- easy control via nc(1) or telnet(1)
+- script station changes and mixing via at(1), nc(1) and/or shell scripts
+- interface it as a music player backend to home automation systems
+- automatic station selection (autotuning) based on music preferences of
+  those connected/present/listening.
+- Use existing [web remote], another existing client or write your own.
+- integrated webserver and websocket support
+
+The project home page is: http://deviousfish.com/pianod
+Latest version is available via SVN client at: http://svn.deviousfish.com/pianod
+
+[web remote]: http://deviousfish.com/pianod/Client
+[Pandora]: http://www.pandora.com
+
+
+contributors
+============
+pianod is is based on libpiano/libwaitress from pianobar; the control
+interface was developed by Perette Barella <perette@deviousfish.com>,
+with help, encouragement, improvements, problem reports, debugging and
+fixes from Nick Brown, Jon Chelton, Robert Grimes, Ted Hess, Michael R.
+Hines, Gary Koch, Ansen F. Labardee, Peter Li, Brian Moyer, Pete, Henry
+So, and Bryant Young.
+
+libfootball includes encodeblock courtesy Bob Trower, Trantor Standard
+Systems Inc., and SHA1 code from the reference implementation included
+in [RFC3174] "US Secure Hash Algorithm 1 (SHA1)", section 7.1 (sha1.h)
+and 7.2 (sha1.c).
+
+[RFC3174]: http://tools.ietf.org/html/rfc3174
+
+
+
+acknowledgements
+================
+pianod is a derivative work based on libpiano & libwaitress and inspired by
+pianobar by Lars-Dominik Braun <lars@6xq.net>.  Without his Pandora libraries,
+this project would be impossible.  Thanks Lars!
+
+pianobar:
+
+- play and manage (create, add more music, delete, rename, ...) your stations
+- rate played songs and let pandora explain why they have been selected
+- show upcoming songs/song history
+- configure keybindings
+- last.fm scrobbling support (external application)
+- proxy support for listeners outside the USA
+
+The sourcecode can be downloaded at http://github.com/PromyLOPh/pianobar/ or
+http://6xq.net/projects/pianobar/
+

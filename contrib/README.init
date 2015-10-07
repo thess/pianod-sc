@@ -1,0 +1,43 @@
+== init.d service scripts for pianod ==
+The files pianod.raspbian.init and pianod.conf provide for running pianod as a 
+service on Linux using the older init.d script system.  This includes many 
+Linux distributions, but they are not all cross-compatible.  The init script 
+provided was tested on Raspbian, the Debian-based distribution for RaspberryPi.
+It will probably work on other Debians.  Essentially it depends on 
+/lib/lsb/init-functions defining shell functions like log_daemon_msg.
+
+Additionally, the script depends on the helper program start-stop-daemon.
+
+If you are trying to set up pianod as a service on a systemd system (e.g. 
+ArchLinuxARM), see README.service.
+
+
+== Installation ==
+To add the service to your systemd Linux system, copy pianod.raspbian.init to 
+  /etc/init.d/pianod
+
+pianod.init expects to have some environment variables set for it so copy
+pianod.conf to
+  /etc/pianod.conf
+
+You can edit pianod.conf to change the runtime options.
+
+You should then be able to control the pianod service using:
+  /etc/init.d/pianod start
+  /etc/init.d/pianod status
+  /etc/init.d/pianod stop
+
+To set up the service to run at boot:
+  update-rc.d pianod defaults
+
+To disable:
+  update-rc.d pianod disable
+
+
+== Support ==
+These files are provided as is.  If you need support, you can try asking on the 
+pianod mailing list:
+  http://lists.deviousfish.com/listinfo.cgi/pianod-deviousfish.com
+
+For RaspberryPi support, you could also try the RaspberryPi forums:
+  http://www.raspberrypi.org/phpBB3/

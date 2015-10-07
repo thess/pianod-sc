@@ -1,0 +1,86 @@
+#!/bin/ksh
+# This script creates a CA certficate, then a server certificate with that
+# CA as the authority.  Browsers will complain about the validity of the
+# certificate because it's signed by a bogus CA, but most can be told to
+# use it anyway.
+
+arg0="$(basename "$0")"
+DEF_ORG="Organization of Chaos"
+DEF_OU="Musical Mismanagement"
+
+if [ "$1" = "-?" ]
+then
+	print "Create a private key and signed certificate for TLS to use."
+	print "The certificate is privately signed by a bogus certificate authority."
+	print "Usage:"
+	print "    $arg0 [hostname] [certificate-authority-name] [org-unit]"
+	print "Defaults:"
+	print "    Hostname: $(uname -n)"
+	print "    Organization: $DEF_ORG"
+	print "    Org unit: $DEF_OU"
+	exit 1
+fi
+
+if [ "$(whoami)" = "root" ]
+then
+	PREFIX="pianod."
+else
+	cd ~/.config/pianod || exit 1
+fi
+
+# Find the correct certtool
+TOOL=$(whence -p gnutls-certtool)
+[ "$TOOL" = "" ] && TOOL=$(whence -p certtool)
+if [ "$TOOL" = "" ]
+then
+	print "certtool not found."
+	exit 1
+fi
+message=$($TOOL --version)
+if [ $? -ne 0 -o $(print -- "$message" | grep -c "gnutls") -eq 0 ]
+then
+	print "Not the right certtool?"
+	exit 1
+fi
+print "Using certtool: $TOOL"
+
+# Cookbooked from 
+# http://gnutls.org/manual/html_node/gnutls_002dserv-Invocation.html
+
+HOST="$1"
+[ "$HOST" = "" ] && HOST="$(uname -n)"
+ORG="$2"
+OU="$3"
+if [ "$ORG" = "" ]
+then
+	ORG="$DEF_ORG"
+	OU="$DEF_OU"
+fi
+
+# Add support for X.509. First we generate a CA (x509-ca.pem, x509-ca-key.pem).
+# These files are not used by pianod; only to generate the key & certificate.
+$TOOL --generate-privkey > ${PREFIX}x509-ca-key.pem
+echo "cn = $HOST" > ca.tmpl
+echo "organization = Do-It-Yourself Corporation" >> ca.tmpl
+echo "unit = Division of Homemade Certificates" >> ca.tmpl
+echo 'ca' >> ca.tmpl
+echo 'cert_signing_key' >> ca.tmpl
+$TOOL --generate-self-signed --load-privkey ${PREFIX}x509-ca-key.pem \
+  --template ca.tmpl --outfile ${PREFIX}x509-ca.pem || exit $?
+rm ca.tmpl
+
+# Generate a server certificate with the CA certificate we just generated.
+# x509-server.pem & x509-server-key.pem are needed by pianod for HTTPS.
+$TOOL --generate-privkey > ${PREFIX}x509-server-key.pem
+echo "organization = $ORG" > server.tmpl
+[ "$OU" != "" ] && echo "unit = $OU" >> server.tmpl
+echo "cn = $HOST" >> server.tmpl
+echo 'tls_www_server' >> server.tmpl
+echo 'encryption_key' >> server.tmpl
+echo 'signing_key' >> server.tmpl
+echo "dns_name = $HOST" >> server.tmpl
+$TOOL --generate-certificate --load-privkey ${PREFIX}x509-server-key.pem \
+  --load-ca-certificate ${PREFIX}x509-ca.pem --load-ca-privkey ${PREFIX}x509-ca-key.pem \
+  --template server.tmpl --outfile ${PREFIX}x509-server.pem || exit $?
+rm server.tmpl
+

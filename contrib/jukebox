@@ -1,0 +1,350 @@
+#!/bin/bash
+# Example "glue" script for a jukebox.
+
+PATH="$PATH:$USER/bin"
+export PIANOD_USER=x10
+export PIANOD_PASSWORD=password
+MSERV_USER=x10
+MSERV_PASS=password
+
+LOCALJUKE=itunes
+REMOTEJUKE=pianod
+ACTIVEJUKE=""
+
+STANDARDVOLUME=80
+SCRIPTS=$HOME/bin/iTunesScripts
+TAB="	"
+
+
+
+
+
+# Gary and Dave's Audio Mixer
+function tell_gdam {
+	typeset action="$1"
+	typeset message="$action"
+
+	# Just adjust volume - don't actually pause player.
+	# (Matt uses streaming audio.)
+	[ "$action" = "pause" ] && message=0
+	[ "$action" = "quiet" ] && message=0
+	[ "$action" = "continue" ] && message=16
+	[ "$action" = "skip" ] && message=next
+	[ "$action" = "replay" ] && message=rewind
+
+	(echo " $message") | nc localhost volume >/dev/null 2>&1
+}
+
+
+
+
+
+function tell_itunes {
+	typeset message="$1"
+	shift
+
+	# ~x10/bin/osagod "$SCRIPTS/jukebox.scpt" "$message" "$@"
+	osascript "$SCRIPTS/jukebox.scpt" "$message" "$@"
+}
+
+function is_itunes_playing
+{
+	typeset status
+	status=$(osascript "$SCRIPTS/jukebox.scpt" "status")
+	[ $? -eq 0 -a "$status" = "playing" ] && return 0
+	return 1
+}
+
+
+
+
+
+### mserv interface ###
+
+function mserv
+{
+	/usr/local/bin/mservcmd -u "$MSERV_USER" -p "$MSERV_PASS" "$*"
+}
+
+function is_mserv_playing
+{
+	mserv status | head -1 | grep -qi "playing"
+	return $?
+}
+
+function is_mserv_on
+{
+	mserv volume | grep 'currently 0%'
+	[ $? -eq 0 ] && return 1
+	return 0
+}
+
+function adjust_rating
+{
+	typeset rating newrating
+	[ $# -gt 1 ] && MSERV_USER="$2" && MSERV_PASS="$2"
+	rating=$(mserv "info" | tail +2 | cut -s -d"$TAB" -f12)
+	case "$rating" in
+		AWFUL)			rating=1 ;;
+		BAD)			rating=2 ;;
+		UNHEARD|NEUTRAL|HEARD)	rating=3 ;;
+		GOOD)			rating=4 ;;
+		SUPERB)			rating=5 ;;
+		*)			return 1 ;;
+	esac
+	if [ "$1" = "better" ]
+	then
+		let rating=rating+1
+	elif [ "$1" = "worse" ]
+	then
+		let rating=rating-1
+	else
+		return 1
+	fi
+	case "$rating" in
+		0)	mserv next
+			return 0 ;;
+		1)	rating=AWFUL ;;
+		2)	rating=BAD ;;
+		3)	rating=NEUTRAL ;;
+		4)	rating=GOOD ;;
+		5)	rating=SUPERB ;;
+		*)	return 0;
+	esac
+	mserv "rate $rating"
+	[ "$rating" = "AWFUL" ] && mserv next
+	return $?
+}
+
+
+function tell_mserv {
+	typeset message="$1"
+	shift
+	case "$message" in
+		pause)	mserv pause ;;
+		stop)	mserv pause
+			mserv filter off
+			mserv volume 0 ;;
+		wake)
+			if ! is_mserv_on || ! is_juke_playing
+			then
+				mserv filter off
+				mserv volume 5
+				mserv repeat
+				mserv next
+				mserv play
+				mserv factor 0.50
+				volume=10
+				while [ $volume -le $STANDARDVOLUME ]
+				do
+					sleep 7
+					# Handle asynchronous off
+					is_mserv_on || exit 0
+					mserv volume $volume
+					let volume=volume+5
+				done &
+			else
+				mserv play
+			fi ;;
+		continue)
+			if ! is_mserv_on && ! is_juke_playing
+			then
+				mserv repeat
+				mserv next
+				mserv play
+				mserv volume $STANDARDVOLUME
+				mserv factor 0.50
+			else
+				mserv play
+			fi ;;
+		skip)	mserv next ;;
+		replay)	mserv repeat
+			mserv next ;;
+		mute)	mserv volume 10 ;;
+		unmute)	mserv volume $STANDARDVOLUME ;;
+		louder)	mserv volume +10 ;;
+		quieter)
+			mserv volume -10 ;;
+		rate)	if is_mserv_on && is_juke_playing
+			then
+				adjust_rating "$@"
+			fi ;;
+		
+
+	esac
+}
+
+
+### pianod interface ###
+function is_pianod_playing
+{
+	piano
+	return $?
+}
+
+function tell_pianod {
+	typeset message="$1"
+	shift
+	case "$message" in
+		mute)
+			piano volume -30
+			;;
+		unmute)
+			piano volume 0
+			;;
+		louder)
+			piano volume up
+			piano volume up
+			piano volume up
+			piano volume up
+			piano volume up
+			;;
+		quieter)
+			piano volume down
+			piano volume down
+			piano volume down
+			piano volume down
+			piano volume down
+			;;
+		continue)
+			piano "play" || piano "play mix" ;;
+		quiet|stop|mute)
+			piano "pause" ;;
+		info)
+			piano status ;;
+		*)
+			piano "$message" "$@" ;;
+	esac
+}
+
+
+### Abstract local vs. remote ###
+
+# Determine which player is playing, if either.
+# Return 0 on playing, non-0 on stopped.
+function get_active_juke
+{
+	if [ "$ACTIVEJUKE" = "" ]
+	then
+		typeset localactive=false
+		typeset remoteactive=false
+		eval "is_${LOCALJUKE}_playing" && localactive=true
+		eval "is_${REMOTEJUKE}_playing" && remoteactive=true
+		case "$localactive$remoteactive" in
+			truetrue)
+				# Fix both playing while we're at it.
+				remote pause
+				ACTIVEJUKE="$LOCALJUKE"
+				;;
+			truefalse)
+				ACTIVEJUKE="$LOCALJUKE"
+				;;
+			falsetrue)
+				ACTIVEJUKE="$REMOTEJUKE"
+				;;
+			falsefalse)
+				ACTIVEJUKE="none"
+				;;
+		esac
+	fi
+	[ "$ACTIVEJUKE" != "none" ]
+	return $?
+}
+
+
+# Dispatch commands to the local, remote, or active player
+function local {
+	eval "tell_$LOCALJUKE \"\$@\""
+}
+
+function remote {
+	eval "tell_$REMOTEJUKE \"\$@\""
+}
+
+function active {
+	if get_active_juke
+	then
+		eval "tell_$ACTIVEJUKE \"\$@\""
+	fi
+}
+
+
+##### Main body begins here #####
+
+message="$1"
+shift
+
+# Turn equipment on/off in response to command
+case "$message" in
+	jukebox|receive|continue|quiet|wake)
+		# ~/bin/action turn house_stereo on
+		~/bin/action turn living_stereo on &
+		~/bin/action turn basement_stereo on &
+		;;
+	pause)
+		killall -STOP mpg123 mpg321 2>/dev/null
+		;;
+	stop)
+		# Pause MP3 playback of whatever
+		killall -STOP mpg123 mpg321 2>/dev/null
+		# ~/bin/action turn house_stereo off
+		# Delayed shutoff:
+		# Basement stereo power supply holds a charge for a second
+		# or two, and "farts" while trying to play after shutoff...
+		# Give music time to pause and retain main stereo
+		# long enough for basement to  shut off completely.
+		(sleep 2; ~/bin/action turn basement_stereo off) &
+		(sleep 5; ~/bin/action turn living_stereo off) &
+		;;
+	check)	if ! get_active_juke
+		then
+			~/bin/action turn house_stereo off
+		fi
+		;;
+esac
+
+# If there's something playing via mpg123, finish that.
+# Otherwise, do the regular jukebox stuff.
+if [ "$message" = "continue" -o "$message" = "jukebox" ]
+then
+	killall -CONT mpg123 mpg321 2>/dev/null && exit 0
+fi
+
+# Dispatch the command to the music servers/players
+case "$message" in
+	check)	# No-op
+		:
+		;;
+	info)	if get_active_juke
+		then
+			active info
+		else
+			echo "Jukebox is stopped."
+		fi
+		;;
+	wake)	# If we're already playing, don't interrupt.
+		if ! get_active_juke
+		then
+			local wake
+		fi
+		;;
+	quiet|stop)
+		# Need to add reset on stop
+		local pause
+		remote pause
+		;;
+	receive)
+		local pause
+		remote continue
+		;;
+	continue|jukebox)
+		remote pause
+		local continue
+		;;
+	*)
+		active "$message" "$@"
+		;;
+esac
+
+exit $?
+

@@ -1,0 +1,173 @@
+#!/bin/ksh
+######################################################################
+# Program:	get-pianod-config
+# Purpose:	Reads the pianod state and generates a config file.
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+
+
+######################################################################
+# Function:	usage
+# Purpose:	Displays the usage of this command.
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+function usage
+{
+	print "Usage: $arg0 [-c] [-d] [-v] [-rsw ] [-p port] [-h host] [pianod command]"
+	print "Creates a startscript from the current pianod state."
+	print "   -v        : Verbose."
+	print "   -h host   : Use pianod server on host."
+	print "   -p port   : Connect on port instead of 4445."
+	print "   -U user   : The user to login as."
+	print "   -P passwd : The password to login with."
+	exit 1
+}
+##### End of function usage #####
+
+
+
+# Wrapper for piano to pass it all the required parameters.
+function piano {
+	typeset user password
+	$VERBOSE && print "piano $*" 1>&2
+	[ "$USER" != "" ] && user="-U '$USER'"
+	[ "$PASSWORD" != "" ] && password="-P '$PASSWORD'"
+	eval "$PIANO -h '$HOST' -p '$PORT' $user $password \"\$@\""
+}
+
+
+######################################################################
+# Function:	parse_arguments
+# Purpose:	Parses the command line arguments
+# Arguments:	The command line arguments.
+# Returns:	Number of arguments parsed.
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+function parse_arguments
+{
+	typeset option
+	while getopts 'vU:P:p:h:' option
+	do
+		case "$option" in
+			U)	USER="$OPTARG" ;;
+			P)	PASSWORD="$OPTARG" ;;
+			p)	PORT="$OPTARG" ;;
+			h)	HOST="$OPTARG" ;;
+			v)	VERBOSE=true ;;
+			*)	usage ;;
+		esac
+	done
+	typeset status=0
+	return $((OPTIND - 1))
+}
+##### End of function parse_arguments #####
+
+
+
+
+##### Start of main #####
+
+arg0=$(basename $0)
+
+HOST="${PIANOD_HOST:-localhost}"
+PORT="${PIANOD_PORT:-4445}"
+USER="${PIANOD_USER}"
+PASSWORD="${PIANOD_PASSWORD}"
+PIANO="$(type -p piano)"
+VERBOSE=false
+parse_arguments "$@"
+shift $?
+
+if [ "$PIANO" = "" ]
+then
+	print "piano: Not found."
+	exit 1
+fi
+
+encryption="$(piano -vd get encryption password)" || return $?
+decryption="$(piano -vd get decryption password)" || return $?
+device="$(piano -vd get pandora device)" || return $?
+partner_user="$(piano -vd get pandora device)" || return $?
+proxy="$(piano -d get proxy)" 2>/dev/null || return $?
+tlsfingerprint="$(piano -vd get tls fingerprint)" || return $?
+tlsport="$(piano -d get rpc tls port)" 2>/dev/null || return $?
+rpchost="$(piano -vd get rpc host)" 2>/dev/null || return $?
+control_proxy="$(piano -d get control proxy)" 2>/dev/null || return $?
+partner_user="$(piano -vcd get partner | grep '^165 ' | sed 's/^... //')"
+partner_password="$(piano -vcd get partner | grep '^166 ' | sed 's/^... //')"
+pandora_user="$(piano -vcd get pandora user | grep '^170 ' | sed 's/^... //')"
+pandora_password="$(piano -vcd get pandora user | grep '^171 ' | sed 's/^... //')"
+if station="$(piano -svd)"
+then
+	type="$(print -- "$station" | awk '{print $1}')"
+	if [ "$type" != "station" ]
+	then
+		station="$type"
+	else
+		station="$type \"$(print -- "$station" | sed "s/^$type //")\""
+	fi
+else
+	station=mix
+fi
+	
+history="$(piano -vd get history length)" || return $?
+quality="$(piano -vd get audio quality)" || return $?
+volume="$(piano -vd volume)" || return $?
+action="select"
+piano && action="play"
+ao_driver="$(piano -d get audio output driver)" || return $?
+ao_device="$(piano -d get audio output device)" || return $?
+ao_id="$(piano -d get audio output id)" || return $?
+ao_server="$(piano -d get audio output server)" || return $?
+
+if [ "$pandora_user" = "" ]
+then
+	pandora="# "
+	pandora_user="pandorauser@foo.bar"
+	pandora_password="pandorapassword"
+fi
+
+
+
+# Write the output
+cat << EOF
+# pianod start script
+# created $(date)
+#
+# Pandora parameters
+#
+set tls fingerprint "$tlsfingerprint"
+set partner user "$partner_user" "$partner_password"
+set pandora device "$device"
+set encryption password "$encryption"
+set decryption password "$decryption"
+set rpc host "$rpchost"
+set rpc tls port $tlsport
+#
+# audio output settings
+#
+set audio output driver $ao_driver
+set audio output device $ao_device
+set audio output id $ao_id
+set audio output server $ao_server
+#
+# pianod settings
+#
+set audio quality $quality
+set history length $history
+volume $volume
+#
+# Pandora credentials
+#
+${pandora}pandora user "$pandora_user" "$pandora_password"
+#
+# On startup...
+#
+$action $station
+
+EOF
+
+exit $?
+
+##### End of main #####
+

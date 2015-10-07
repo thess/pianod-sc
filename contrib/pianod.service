@@ -1,0 +1,11 @@
+[Unit]
+Description=Pandora Client Daemon
+After=syslog.target
+
+[Service]
+EnvironmentFile=/etc/pianod.env
+ExecStart=/usr/sbin/pianod $INITSCRIPT $USERFILE $PORT $LOGGING
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target

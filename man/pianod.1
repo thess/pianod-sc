@@ -1,0 +1,185 @@
+.\"Modified from man(1) of FreeBSD, the NetBSD mdoc.template, and mdoc.samples.
+.\"See Also:
+.\"man mdoc.samples for a complete listing of options
+.\"man mdoc for the short list of editing options
+.\"/usr/share/misc/mdoc.template
+.Dd 2013-04-21               \" DATE 
+.Dt pianod 1      \" Program name and manual section number 
+.Os UNIX/Linux/Darwin
+.Sh NAME                 \" Section Header - required - don't modify 
+.Nm pianod
+.\" The following lines are read in generating the apropos(man -k) database. Use only key
+.\" words here as the database is built based on the words here and in the .ND line. 
+.\" .Nm Other_name_for_same_program(),
+.\" .Nm Yet another name for the same program.
+.\" Use .Nm macro to designate other names for the documented program.
+.Nd Pandora client daemon.
+.Sh SYNOPSIS             \" Section Header - required - don't modify
+.Nm
+.\" .Op Fl abcd          \" [-abcd]
+.Op Fl v
+.Op Fl p Ar port         \" [-p port] 
+.Op Fl P Ar httpport     \" [-P httpport] 
+.Op Fl s Ar httpsport    \" [-P httpport] 
+.Op Fl c Ar clientdir    \" [-c clientdir]
+.Op Fl i Ar startscript  \" [-i startscript]
+.Op Fl n Ar nobodyuser   \" [-n nobody]
+.Op Fl g Ar groups
+.Op Fl u Ar userdata     \" [-u userdata ]
+.\" .Op Ar                   \" [file ...]
+.\" .Ar arg0                 \" Underlined argument - use .Ar anywhere to underline
+.\" arg2 ...                 \" Arguments
+.Sh DESCRIPTION          \" Section Header - required - don't modify
+.Nm
+is a daemon for Pandora, the online music service. 
+.Nm
+provides a TCP/IP line-oriented socket interface and a Websockets
+interface, each allowing multiple clients to connect for status and
+control.  The application protocol (command/response set) is identical
+between line-oriented and Websocket connections.
+.Pp
+The line-oriented protocol is accessible with
+.Xr nc 1
+or 
+.Xr telnet 1 ;
+a line session may be initiated on the HTTP port via the greeting "HELO pianod".
+.\" Use the .Nm macro to refer to your program throughout the man page like such:
+.\" .Nm
+.\" Underlining is accomplished with the .Ar macro like this:
+.\" .Ar underlined text .
+.\" .Pp                      \" Inserts a space
+.\" A list of items with descriptions:
+.\" .Bl -tag -width -indent  \" Begins a tagged list 
+.\" .It item a               \" Each item preceded by .It macro
+.\" Description of item a
+.\" .It item b
+.\" Description of item b
+.\" .El                      \" Ends the list
+.\" .Pp
+.Sh OPTIONS
+.Bl -tag -width -indent  \" Differs from above in tag removed 
+.It Fl v
+Report version and exit.
+.It Fl p Ar port                 \"-a flag as a list item
+The line port, default 4445.
+When set to 0, the line-oriented port is disabled.
+.It Fl P Ar port                 \"-a flag as a list item
+The HTTP port, default 4446 or
+.Fl Ar p port
++ 1.  When set to 0, the
+HTTP server and Websockets are disabled.
+.It Fl s Ar port
+The HTTPS port, default 4447,
+.Fl Ar p port
++ 2, or
+.Fl Ar P port
++ 1.  When set to 0, or when the required X509 certificate and keys are not
+present, the HTTPS server and secure websockets are disabled.
+.It Fl c Ar clientdir
+Location of files to be served via HTTP(S).  The server only serves files (no
+server-side processing); this is intended to serve a web applet that will then
+communicate using Websockets.  If this option is not set,
+HTTP GET and HEAD requests return errors.  
+.It Fl i Ar startscript
+The script pianod executes on startup.
+The script is run with pianod administrator privileges, typically
+setting the Pandora user, audio preferences, and choosing a default station.
+.It Fl n Ar nobodyuser
+When invoked as root, the user to change to after startup.
+.Nm
+assumes both the user and group id of the specified user.
+Defaults to nobody.
+.It Fl g Ar groups
+When invoked as root, a comma-separated list of 
+supplementary groups to assume after startup.
+Defaults to the supplementary groups of the nobodyuser (see -n).
+.It Fl u Ar userdata
+The userdata/password file.
+.El                      \" Ends the list
+.Pp
+.Sh ENVIRONMENT      \" May not be needed
+.Bl -tag -width "XDG_CONFIG_HOME" -indent \" ENV_VAR_1 is width of the string ENV_VAR_1
+.It Ev XDG_CONFIG_HOME
+Sets the location of configuration files.  Files are stored in a
+.Nm
+directory within this.
+.It HOME
+If XDG_CONFIG_HOME is not set, and
+.Nm
+is not running as root, then files are stored in
+$HOME/.config/pianod.
+.El                      
+.Sh FILES                \" File used or created by the topic of the man page
+Configuration file location is set by
+XDG_CONFIG_HOME.  If not set and
+.Nm
+is running as root, filenames are prefixed with
+.Nm
+and are stored in
+SYSCONFDIR
+which is usually
+/etc
+but may be pointed elsewhere when the package is configured.
+If not running as root,
+.Nm
+uses
+$HOME/.config/pianod
+or failing that in a 
+.Nm
+subdirectory of the current directory.
+.Pp
+.Bl -tag -width "x509-server-key.pem" -compact
+.It Pa startscript
+Commands executed with administrator privilege when
+.Nm
+is launched.
+.It Pa passwd
+This XML file contains a list of
+pianod users, their passwords (encrypted), privileges and preferences.
+.It x509-server.pem
+The X509 certificate used for HTTPS encryption.
+.It x509-server-key.pem
+The X509 key used for HTTPS encryption
+.El                      \" Ends the list
+.Sh DIAGNOSTICS       \" May not be needed
+.\" .Bl -diag -tag
+.\" .El
+To enable logging, use the
+.Fl Z
+and
+.Fl z
+flags:
+.Bl -tag -width -indent  \" Differs from above in tag removed 
+.It Fl Z Ar value
+Enables pianod logging for events indicated by
+.Ar value .
+Logs are sent to standard
+error, which may be redirected in usual manners. 0xfefd is a good value; see
+the code for specific flags.
+.It Fl z Ar value
+Like
+.Fl Z
+but for Football events such as connects, disconnects, socket states
+and HTTP requests.
+.El
+.Pp
+Logging preferences may also be changed at run-time via the SET [FOOTBALL]
+LOGGING FLAGS command.
+.Sh AUTHOR
+.Nm
+was developed by Perette Barella <perette@deviousfish.com> and incorporates
+components from Lars-Dominik Braun and others.  See the COPYING file for
+full information.
+.Sh COPYRIGHT
+.Nm
+is Copyright the various authors and
+is available under the MIT license; see the COPYING file for full text.
+.Sh SEE ALSO 
+.\" List links in ascending order by section, alphabetically within a section.
+.\" Please do not reference files that do not exist without filing a bug report
+.Xr piano 1 , 
+.Xr runmix 1 ,
+.Xr wsgw 1 ,
+.Xr football 3
+.\" .Sh BUGS              \" Document known, unremedied bugs 
+.\" .Sh HISTORY           \" Document history if command behaves in a unique manner

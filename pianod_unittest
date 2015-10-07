@@ -1,0 +1,779 @@
+#!/bin/ksh
+# TESTLINE
+######################################################################
+# Program:	pianod_unittest
+# Purpose:	Exercises various pianod functions to make sure
+#		they work correctly.
+# Arguments:	A list of tests to perform.  If no list is given,
+#		exercises all tests.
+# Environment:	PANDORA_USER & PANDORA_PASSWORD - Username and password
+#		for a Pandora account.  If not given, or the test
+#		prerequisite stations do not exist, these tests are skipped.
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+
+arg0=$(basename $0)
+TEMPDIR=TestData
+STARTSCRIPT="${TEMPDIR}/pianod.startscript"
+USERDATA="${TEMPDIR}/pianod.passwd"
+PRIMARYSESSION="${TEMPDIR}/primary-session"
+SECONDUSER="${TEMPDIR}/second-output"
+SECONDSESSION="${TEMPDIR}/second-session"
+PIANO="${srcdir:-.}/contrib/piano"
+VERBOSE=false
+VERBOSEFLAG=""
+TAIL="/usr/bin/tail"
+
+STATION1="${PANDORA_STATION1:-disco}"
+STATION2="${PANDORA_STATION1:-jazz}"
+STATION3="${PANDORA_STATION1:-ominous}"
+
+# Use different port in case a regular instance is running
+PIANOD=${builddir:-.}/src/pianod
+export PIANOD_PORT=5180
+export PIANOD_HOST=localhost
+
+rm -rf "${TEMPDIR}"
+mkdir "${TEMPDIR}" || exit 1
+
+# Check for supporting files
+if [ ! -x "$PIANOD" ]
+then
+	print "$PIANOD executable not found"
+	exit 1
+fi
+
+# Make sure tail works; GNU supplies a crippled version
+WORKING_TAIL=false
+if [ -x "$TAIL" ]
+then
+	if tail +2 "$0" >/dev/null
+	then
+		typeset value="$(tail +2 "$0" | head -1)"
+		[ "$value" = "# TESTLINE" ] && WORKING_TAIL=true
+	fi
+fi
+
+[ "$1" = "-v" ] && VERBOSE=true && VERBOSEFLAG="-v" && shift
+
+function tail {
+	if [ "${1:0:1}" != "+" ] || $WORKING_TAIL
+	then
+		$TAIL "$@"
+		return
+	fi
+	# Reimplement tail +line behavior in shell if it doesn't work.
+	typeset start="${1#+}"
+	typeset linenum=0 line
+	while :
+	do
+		let "linenum += 1"
+		if [ $linenum -ge $start ]
+		then
+			cat
+			return
+		fi
+		read line
+	done < "$2"
+	return 0
+}
+
+# Wrapper for piano shell script
+function piano {
+	$VERBOSE && print -- "Executing [$PIANOD_USER/$PIANOD_PASSWORD]:" $@
+	$PIANO $VERBOSEFLAG "$@"
+}
+
+# Start pianod without resetting everything
+function restart_pianod {
+	${PIANOD} -p ${PIANOD_PORT} -u ${USERDATA} -i ${STARTSCRIPT} &
+	[ $? -ne 0 ] && print "Unable to start pianod; test abended." && exit 1
+	PIANOD_PID=$!
+	# Make the pianod server is up and running
+	startup=30
+	while ! piano get privileges >/dev/null 2>&1
+	do
+		let startup=startup-1
+		if [ $startup -le 0 ]
+		then
+			print "$TEST_ID: Failure starting pianod."
+			print "Unit test script failure."
+			exit 1
+		fi
+		sleep 1
+	done
+}
+
+# Reset everything to a known state and then start pianod
+function start_pianod {
+	rm -f ${USERDATA}
+	cat << EOF > ${STARTSCRIPT}
+user admin admin
+create user user user
+create guest guest guest
+create user disabled disabled
+set user rank disabled disabled
+set guest rank disabled
+EOF
+	unset PIANOD_USER
+	unset PIANOD_PASSWORD
+	TEST_OK=true
+	SKIP_TEST=false
+	restart_pianod
+}
+
+function do_admin {
+	piano -U admin -P admin "$@"
+}
+
+# Kill pianod, waiting for it to shutdown before returning.
+function shutdown_pianod {
+	kill -0 $PIANOD_PID || fail "pianod process not running at end of test."
+	# forcibly kill process if it doesn't shutdown gracefully
+	(sleep 10; kill $PIANOD_PID) 1>/dev/null 2>&1 &
+	do_admin shutdown
+	fg $PIANOD_PID
+	PIANOD_PID=""
+}
+
+
+
+# Set up a single requirement/prerequisite.
+# Returns 0 on success, non-0 on missing prerequisites.
+function setup {
+	typeset demand="$1" param="$2" count
+	case "$demand" in
+	    pandora)
+		[ "$PANDORA_USER" = "" -o "$PANDORA_PASSWORD" = "" ] && return 1
+		[ "$param" = "credentials" ] && return 0
+		do_admin pandora user "$PANDORA_USER" "$PANDORA_PASSWORD" $param
+		return $?
+		;;
+	    station)
+		count=$(piano -d -U user -P user stations list | grep -ci "^$param\$")
+		[ $count -eq 1 ]
+		return $?
+	esac
+	return 1
+}
+
+# Set up server for testing.  Accept a list of requirements, validate that
+# each one is available.  Return 0 on ready, non-0 on missing prerequisites.
+function require {
+	typeset requirement param demand
+	for requirement in "$@"
+	do
+		print -- "$requirement" | IFS=":" read demand param
+		if ! setup "$demand" "$param"
+		then
+			print -- "Requirement $requirement not available; skipping test."
+			SKIP_TEST=true
+			return 1
+		fi
+	done
+	return 0
+}
+
+# Validate that a pattern is found a certain number of times in a file.
+function expect_check {
+	typeset file="$1"
+	typeset count="$2"
+	shift 2
+	typeset match=$(egrep -ci -- "$*" "$file")
+	if [ $match -ne $count ]
+	then
+		fail "User output contains wrong number of pattern matches."
+		print -- "Pattern: '$*'"
+		print "Expected $count, found $match."
+		print "Transcript of $file:"
+		cat "$file" | sed 's/^/    /'
+	else
+		print -- "Pattern okay ($match=$count): '$*'"
+	fi
+}
+
+
+# Execute a command, collecting output to a file for later validation.
+function perform {
+	print -- "Session transcript:"
+	piano -c "$@" | tee "$PRIMARYSESSION" | sed 's/^/    /'
+}
+
+function expect {
+	expect_check "$PRIMARYSESSION" "$@"
+}
+
+# Start a secondary connection to pianod in the background
+# Collect output, and give it a mark so we can track subsequent
+# data collected on it.
+function second_user {
+	SECOND_USER="$1"
+	(print -- "user $1 $1"; sleep 300) |
+	nc $PIANOD_HOST $PIANOD_PORT > "$SECONDUSER" &
+	SECOND_PID=$!
+	piano
+	do_admin "yell" "SECOND-USER-IS-UP"
+}
+
+# Shutdown the second connection (if needed) and validate that
+# a pattern showed up a certain number of time on that connection.
+function second_expect {
+	if [ "$SECOND_PID" != "" ]
+	then
+		do_admin kick user "$SECOND_USER"
+		(sleep 10; kill $SECOND_PID) >/dev/null 2>&1 &
+		fg $SECOND_PID
+		SECOND_PID=""
+		# Extract the messages after the secondary user started up
+		if [ $(grep -c SECOND-USER-IS-UP "$SECONDUSER") -ne 1 ]
+		then
+			fail "Secondary user session broken; transcript follows:"
+			cat "$SECONDUSER"
+			return
+		fi
+		typeset n=$(grep -n SECOND-USER-IS-UP "$SECONDUSER" | cut -d: -f1)
+		tail +$((n+1)) "$SECONDUSER" > "$SECONDSESSION"
+		# Dump test data
+		# print -- Full transcript:
+		# cat "$SECONDUSER" | sed 's/^/    /'
+		# print
+		print -- "Matching:"
+		cat "$SECONDSESSION" | sed 's/^/    /'
+	elif [ ! -f "$SECONDUSER" -o ! -f "$SECONDSESSION" ]
+	then
+		fail "Second session files missing."
+		return 1
+	fi
+	expect_check "$SECONDSESSION" "$@"
+}
+
+
+function fail {
+	print -- "$TEST_ID: Failed: $*"
+	TEST_OK=false
+}
+
+# Choose the pianod user for testing.
+# Username and password are expected to be the same.
+function as_user {
+	export PIANOD_USER="$1"
+	export PIANOD_PASSWORD="$1"
+}
+
+# Test the unit test functions to make sure they detect pass/failure correctly.
+function test_00_unittest {
+	piano "get privileges" || fail "Expected to pass"
+	if ! $TEST_OK
+	then
+		print "Unit test problem: TEST_OK=false when it should be true."
+		exit 1
+	fi
+	piano "Expect to fail" || fail "Expected to fail"
+	if $TEST_OK
+	then
+		print "Unit test problem: TEST_OK=true when it should be false."
+		exit 1
+	fi
+	TEST_OK=true
+	second_user user
+	second_expect 0 "something totally unreasonable" || fail "Expected to Pass"
+	second_expect 1 "133 Logged off" || fail "Expected to pass."
+	if ! $TEST_OK
+	then
+		print "Unit test problem: TEST_OK=false when it should be true."
+		exit 1
+	fi
+	second_expect 1 "something totally unreasonable" || fail "Expected to fail"
+	if $TEST_OK
+	then
+		print "Unit test problem: TEST_OK=true when it should be false."
+		exit 1
+	fi
+	TEST_OK=true
+}
+
+# Check initial privileges of the users.
+function test_01_initial_state {
+	as_user visitor
+	piano yell Fish && fail "Visitor allowed to yell"
+	as_user disabled
+	piano yell Fish && fail "Disabled user allowed to yell"
+	as_user guest
+	piano yell Fish || fail "Guest NOT allowed to yell."
+	piano create user foo bar && fail "Guest allowed to create a user"
+	as_user user
+	piano yell Fish || fail "User NOT allowed to yell."
+	piano create user foo bar && fail "User allowed to create a user"
+	as_user admin
+	piano yell Fish || fail "Admin NOT allowed to yell."
+	piano create user foo bar || fail "Admin NOT allowed to create a user"
+}
+
+function test_persistence {
+	piano yell "This is a test" || fail "Able to yell as unauthenticated user."
+	as_user admin
+	shutdown_pianod
+	piano yell "This is a test" && fail "Able to yell after shutting down server."
+	restart_pianod
+	piano yell "This is a test" || fail "Unable to yell after restarting server"
+	print -- "Performing initial state check to make sure users were persisted."
+	test_01_initial_state
+}
+
+
+function test_persist_pandora {
+	require pandora:credentials || return
+	perform stations list
+	expect 0 "115.*:.*$STATION1.*"
+	piano remember pandora user "$PANDORA_USER" "$PANDORA_PASSWORD" mine && fail "Able to remember credentials for unauthenticated user ."
+	as_user admin
+	piano grant service to user || fail "Unable to grant service privilege to user."
+	as_user user
+	piano remember pandora user "$PANDORA_USER" "$PANDORA_PASSWORD" mine || fail "Unable to remember credentials for 'user'."
+	perform stations list
+	expect 1 "115.*:.*$STATION1.*"
+	as_user admin
+	shutdown_pianod
+	piano yell "This is a test" && fail "Able to yell after shutting down server."
+	restart_pianod
+	piano yell "This is a test" || fail "Unable to yell after restarting server"
+	perform stations list
+	expect 0 "115.*:.*$STATION1.*"
+	piano pandora use user || fail "Failed attempting to use stored credentials."
+	perform stations list
+	expect 1 "115.*:.*$STATION1.*"
+}
+
+function test_change_password {
+	as_user user
+	piano yell "I AM USER" || fail "User could not yell"
+	piano set password user changed || fail "Password change reports failure"
+	piano yell "I AM USER" && fail "Old password working after change."
+	piano -P changed yell "I AM USER" || fail "New password not working after change"
+}
+
+function test_admin_change_password {
+	as_user user
+	piano yell "I AM USER" || fail "Could not authenticate as user"
+	piano -U admin -P admin set user password user baka
+	piano yell "I AM USER" && fail "Old password still viable."
+	piano -P baka yell "I AM USER" || fail "New password not working."
+}
+
+
+function test_change_level {
+	as_user admin
+
+	second_user disabled
+	piano set user rank disabled guest
+	second_expect 1 "136.*"
+	second_expect 1 "136.*: guest.*"
+
+	second_user disabled
+	piano set user rank disabled user
+	second_expect 1 "136.*"
+	second_expect 1 "136.*: user.*"
+
+	second_user disabled
+	piano set user rank disabled admin
+	second_expect 1 "136.*"
+	second_expect 1 "136.*: admin.*"
+}	
+
+
+
+function test_set_privilege_level {
+	as_user admin
+
+	# Check baseline privileges
+	second_user guest
+	piano set user rank guest guest || fail "Set rank failed"
+	second_expect 1 "136.*influence"
+	second_expect 0 "136.*owner"
+	second_expect 0 "136.*service"
+
+	second_user guest
+	piano revoke influence from guest || fail "Revoke failed"
+	second_expect 0 "136.*influence"
+	second_expect 0 "136.*owner"
+	second_expect 0 "136.*service"
+	
+	second_user guest
+	piano grant service to guest || fail "Grant failed"
+	second_expect 0 "136.*influence"
+	second_expect 0 "136.*owner"
+	second_expect 1 "136.*service"
+	
+	second_user guest
+	piano grant influence to guest || fail "Grant failed"
+	second_expect 1 "136.*influence"
+	second_expect 0 "136.*owner"
+	second_expect 1 "136.*service"
+}
+
+function test_delete_user
+{
+	as_user admin
+
+	second_user guest
+	piano delete user disabled || fail "Could not delete disabled"
+	piano delete user user || fail "Could not delete user"
+	piano delete user guest && fail "Deleted logged in guest."
+	# second_expect kicks the user and cleans up
+	second_expect 1 "133 Logged off" || fail "Expected to see user logged off"
+	piano delete user guest || fail "Unable to delete guest after kicking."
+}
+
+function get_set_test {
+	typeset value="$1" response
+	shift
+	piano set "$@" "$value" || fail "Unable to set $* $value"
+	response=$(piano -d get "$@")
+	if [ "$response" != "$value" ]
+	then
+		fail "$* not returning assigned value."
+		print "Value assigned:  $value"
+		print "Value retrieved: $response"
+		return 1
+	fi
+	print "get/set $* okay"
+	return 0
+}
+function test_set_get_parameters {
+	as_user admin
+
+	get_set_test speaker audio output device
+	piano set audio output driver bakayaro &&
+		fail "Accepted bogus audio output driver name."
+	get_set_test null audio output driver
+	get_set_test 0 audio output id
+	get_set_test server.local audio output server
+
+	get_set_test 5deadcabb1e5becafebabebeef4fee09a50b005e tls fingerprint
+	piano set tls fingerprint 054067 &&
+		fail "Accepted too short fingerprint"
+	piano set tls fingerprint 5Xeadcabb1esbecafebabebeef4fee09a50b00ze &&
+		fail "Accepted TLS fingerprint with invalid characters"
+	piano set tls fingerprint 5deadcabb1esbecafebabebeef4fee09a50b00ze7 &&
+		fail "Accepted excessively long fingerprint."
+
+	get_set_test bakayaro! pandora device
+	get_set_test deviousfish.com rpc host
+	get_set_test 1234 rpc tls port
+	get_set_test bing_bang_diggiriggidong encryption password
+	get_set_test down_down_turnaround decryption password
+
+	piano set partner "foo bar" "qwertyuiopasdfghjklzxcvbnm" ||
+		fail "Error setting partner user."
+	perform get partner
+	expect 1 '^165 .*: foo bar$'
+	expect 1 '^166 .*: qwertyuiopasdfghjklzxcvbnm$'
+
+	piano set proxy http://barella.org
+	perform get proxy
+	expect 1 '^161 .*: http://barella.org$'
+	piano set proxy foo.bar.com &&
+		fail "Set proxy without scheme."
+
+	piano set control proxy http://americanbedwetter.com
+	perform get control proxy
+	expect 1 '^162 .*: http://americanbedwetter.com$'
+	piano set control proxy foo.bar.com &&
+		fail "Set control proxy without scheme."
+
+	get_set_test high audio quality
+	get_set_test low audio quality
+	get_set_test high audio quality
+	piano set audio quality foobar &&
+		fail "Set audio quality to invalid setting."
+
+	# History length
+	get_set_test 10 history length
+	get_set_test 5 history length
+	piano set history length baka && fail "Set history length to nonsense."
+	piano set history length 0 && fail "0 history length accepted."
+	piano set history length 51 && fail "excessive history length accepted."
+
+	# pause timeout
+	get_set_test 15 pause timeout
+	get_set_test 3600 pause timeout
+	piano set pause timeout baka && fail "Set pause timeout to nonsense."
+	piano set pause timeout 14 && fail "0 pause timeout accepted."
+	piano set pause timeout 86401 && fail "excessive pause timeout accepted."
+
+	# playlist timeout
+	get_set_test 1800 playlist timeout
+	get_set_test 3600 playlist timeout
+	piano set playlist timeout baka && fail "Set playlist timeout to nonsense."
+	piano set playlist timeout 1799 && fail "brief playlist timeout accepted."
+	piano set playlist timeout 86401 && fail "excessive playlist timeout accepted."
+}
+
+function test_volume
+{
+	as_user user
+
+	piano volume -20
+	perform volume
+	expect 1 '141 .*: -20'
+
+	piano volume -10
+	perform volume
+	expect 1 '141 .*: -10'
+
+	piano volume up
+	perform volume
+	expect 1 '141 .*: -9'
+
+	piano volume down
+	perform volume
+	expect 1 '141 .*: -10'
+
+	piano volume baka && fail "Set volume to nonsense."
+	piano volume -101 && fail "Excessively low volume accepted."
+	piano volume 101 && fail "Ecessively high volume accepted."
+
+}
+
+
+function test_user_commands_restricted
+{
+	as_user admin
+	piano create user delete me || fail "Could not create user to delete."
+	piano grant owner to delete && fail "Grant of owner privilege worked."
+
+	for rank in disabled guest user
+	do
+		as_user $rank
+		piano create user foo bar && fail "$rank created a user."
+		piano set user rank foo admin && fail "$rank adjusted a rank."
+		piano grant service to delete && fail "$rank performed a grant."
+		piano revoke influence from delete && fail "$rank performed a revoke."
+		piano delete user delete && fail "$rank deleted a user"
+	done
+}
+
+function test_station_ratings
+{
+	require pandora:unowned "station:$STATION1" "station:$STATION2" || return
+	as_user user
+
+	perform station ratings "$STATION1"
+	expect 0 "120.*good"
+	expect 1 "120.*neutral"
+	expect 0 "120.*bad"
+	perform station ratings "$STATION2"
+	expect 0 "120.*good"
+	expect 1 "120.*neutral"
+	expect 0 "120.*bad"
+
+	piano rate station good "$STATION1" || fail "Could not rate station $STATION1"
+	perform station ratings "$STATION1"
+	expect 1 "120.*good"
+	expect 0 "120.*neutral"
+	expect 0 "120.*bad"
+	perform station ratings "$STATION2"
+	expect 0 "120.*good"
+	expect 1 "120.*neutral"
+	expect 0 "120.*bad"
+
+	piano rate station bad "$STATION2" || fail "Could not rate station $STATION2"
+	perform station ratings "$STATION1"
+	expect 1 "120.*good"
+	expect 0 "120.*neutral"
+	expect 0 "120.*bad"
+	perform station ratings "$STATION2"
+	expect 0 "120.*good"
+	expect 0 "120.*neutral"
+	expect 1 "120.*bad"
+
+	perform station ratings
+	expect 1 "120.*bad"
+	expect 1 "120.*good"
+
+	# restart pianod and make sure the stations were persisted
+	print "Checking station rating persistence..."
+	shutdown_pianod
+	piano yell "This is a test" && fail "Able to yell after shutting down server."
+	restart_pianod
+	require pandora:unowned "station:$STATION1" "station:$STATION2" ||
+		fail "Requirements failed on pianod restart"
+	piano yell "This is a test" || fail "Unable to yell after restarting server"
+	perform station ratings "$STATION1"
+	expect 1 "120.*good"
+	expect 0 "120.*neutral"
+	expect 0 "120.*bad"
+	perform station ratings "$STATION2"
+	expect 0 "120.*good"
+	expect 0 "120.*neutral"
+	expect 1 "120.*bad"
+
+	perform station ratings
+	expect 1 "120.*bad"
+	expect 1 "120.*good"
+}
+
+
+function test_autotuning {
+	require pandora:unowned "station:$STATION1" "station:$STATION2" "station:$STATION3" || return
+	do_admin autotune mode all || fail "Could not select autotuning mode."
+	perform autotune mode
+	expect 1 '144 .*: all'
+	expect 0 '144 .*: login'
+	expect 0 '144 .*: flag'
+
+	do_admin autotune mode login || fail "Could not select autotuning mode."
+	perform autotune mode
+	expect 0 '144 .*: all'
+	expect 1 '144 .*: login'
+	expect 0 '144 .*: flag'
+
+	do_admin autotune mode flag || fail "Could not select autotuning mode."
+	perform autotune mode
+	expect 0 '144 .*: all'
+	expect 0 '144 .*: login'
+	expect 1 '144 .*: flag'
+
+	as_user user
+	piano select auto || fail "Could not switch to autotuning station."
+	piano rate station good "$STATION1" || fail "Could not rate station $STATION1"
+	piano rate station bad "$STATION3" || fail "Could not rate station $STATION3"
+
+	as_user guest
+	piano rate station bad "$STATION1" || fail "Could not rate station $STATION1"
+	piano rate station good "$STATION3" || fail "Could not rate station $STATION3"
+
+	# Test "autotune for"...
+	do_admin autotune for user
+	perform mix list included
+	expect 1 "115 "
+	expect 1 "115.*$STATION1\$"
+	expect 0 "115.*$STATION2\$"
+	expect 0 "115.*$STATION3\$"
+	
+	do_admin autotune for user guest
+	perform mix list included
+	expect 0 "115.*$STATION1\$"
+	expect 1 "115.*$STATION2\$"
+	expect 0 "115.*$STATION3\$"
+	
+	do_admin autotune for guest
+	perform mix list included
+	expect 1 "115 "
+	expect 0 "115.*$STATION1\$"
+	expect 0 "115.*$STATION2\$"
+	expect 1 "115.*$STATION3\$"
+	
+	# Test "autotune consider"
+	do_admin autotune consider user admin
+	perform mix list included
+	expect 0 "115.*$STATION1\$"
+	expect 1 "115.*$STATION2\$"
+	expect 0 "115.*$STATION3\$"
+	
+	# Test "autotune disregard"...
+	do_admin autotune disregard guest
+	perform mix list included
+	expect 1 "115 "
+	expect 1 "115.*$STATION1\$"
+	expect 0 "115.*$STATION2\$"
+	expect 0 "115.*$STATION3\$"
+	
+	# Test other station combination permutations
+	do_admin autotune for user guest
+
+	# Agree on good stations
+	piano rate station good "$STATION1" || fail "Could not rate station $STATION1"
+	piano rate station good "$STATION2" || fail "Could not rate station $STATION3"
+	perform mix list included
+	expect 1 "115 "
+	expect 1 "115.*$STATION1\$"
+	expect 0 "115.*$STATION2\$"
+	expect 0 "115.*$STATION3\$"
+
+	# Agree on unhated states, differ on good stations
+	piano rate station neutral "$STATION1" || fail "Could not rate station $STATION1"
+	perform mix list included
+	expect 2 "115 "
+	expect 1 "115.*$STATION1\$"
+	expect 1 "115.*$STATION2\$"
+	expect 0 "115.*$STATION3\$"
+
+	# Test the influence flag
+	do_admin revoke influence from guest
+	perform mix list included
+	expect 1 "115 "
+	expect 1 "115.*$STATION1\$"
+	expect 0 "115.*$STATION2\$"
+	expect 0 "115.*$STATION3\$"
+
+}
+
+
+if [ $# -gt 0 ]
+then
+	test_list="$*"
+else
+	test_list=$(functions | grep '^function test' | awk '{print $2}')
+fi
+
+
+failed_tests=""
+skipped_tests=""
+for TEST_ID in $test_list
+do
+	print -- "=========================================================="
+	print -- "Start of test ${TEST_ID#test_}"
+	print -- "=========================================================="
+	if ! functions "$TEST_ID" >/dev/null
+	then
+		failed_tests="$failed_tests ${TEST_ID#test_}"
+		print -- "TEST NOT FOUND!"
+		continue
+	fi
+	start_pianod
+	eval "$TEST_ID"
+	if $SKIP_TEST
+	then
+		skipped_tests="$skipped_tests ${TEST_ID#test_}"
+	elif $TEST_OK
+	then
+		print -- "Test passed."
+	else
+		failed_tests="$failed_tests ${TEST_ID#test_}"
+		print -- "TEST FAILED!"
+	fi
+	shutdown_pianod
+	print; print; print
+done
+
+print -- "=========================================================="
+print -- "Test Summary"
+print -- "=========================================================="
+print -- "Tests were performed with:"
+print -- "    WORKING_TAIL=$WORKING_TAIL"
+print
+if [ "$skipped_tests" != "" ]
+then
+	print "The following tests were skipped:"
+	for test_id in $skipped_tests
+	do
+		print -- "\t${test_id}"
+	done
+fi
+
+if [ "$failed_tests" = "" ]
+then
+	[ $# -gt 0 ] && print "Requested tests passed."
+	[ $# -eq 0 ] && print "All tests passed."
+	rm -rf "${TEMPDIR}"
+	exit 0
+else
+	print "The following tests failed:"
+	for test_id in $failed_tests
+	do
+		print -- "\t${test_id}"
+	done
+	exit 1
+fi
+

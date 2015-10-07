@@ -1,0 +1,145 @@
+.\"Modified from man(1) of FreeBSD, the NetBSD mdoc.template, and mdoc.samples.
+.\"See Also:
+.\"man mdoc.samples for a complete listing of options
+.\"man mdoc for the short list of editing options
+.\"/usr/share/misc/mdoc.template
+.Dd 2013-04-21               \" DATE 
+.Dt piano 1      \" Program name and manual section number 
+.Os UNIX/Linux/Darwin
+.Sh NAME                 \" Section Header - required - don't modify 
+.Nm piano
+.\" The following lines are read in generating the apropos(man -k) database. Use only key
+.\" words here as the database is built based on the words here and in the .ND line. 
+.\" .Nm Other_name_for_same_program(),
+.\" .Nm Yet another name for the same program.
+.\" Use .Nm macro to designate other names for the documented program.
+.Nd Command interface to
+.Xr pianod 1 .
+.Sh SYNOPSIS			\" Section Header - required - don't modify
+.Nm
+.\" Fl = flags, Ar = argument
+.Op Fl cdvm
+.Op Fl r
+.Op Fl s
+.Op Fl h Ar host
+.Op Fl p Ar port
+.Op Fl U Ar username
+.Op Fl P Ar password
+.Op Ar command Ar [Arguments ...]
+.Sh DESCRIPTION          \" Section Header - required - don't modify
+.Nm
+issues commands to and retreives data from
+.Xr pianod 1 ,
+allowing shell scripts or interactive access without having to go through
+.Xr telnet 1
+or
+.Xr nc 1 .  Options allow formatting data in various ways, either
+convenient for reading (interactive use) or in more raw forms
+(for further processing).
+.Pp
+If no command is given, retrieves the playback status (playing, paused,
+stopped, etc.) instead of issuing a command; status is indicated only
+by exit status unless -v is given.
+.\" Use the .Nm macro to refer to your program throughout the man page like such:
+.\" .Nm
+.\" Underlining is accomplished with the .Ar macro like this:
+.\" .Ar underlined text .
+.\" .Pp                      \" Inserts a space
+.\" A list of items with descriptions:
+.\" .Bl -tag -width -indent  \" Begins a tagged list 
+.\" .It item a               \" Each item preceded by .It macro
+.\" Description of item a
+.\" .It item b
+.\" Description of item b
+.\" .El                      \" Ends the list
+.\" .Pp
+.Sh OPTIONS			\" Section Header - required - don't modify
+.Bl -tag -width -indent  \" Differs from above in tag removed 
+.It Fl c
+In output, include numeric status codes.
+.It Fl d
+Data only; in output, strip the field names.
+.It Fl v
+Verbose. Output status text instead of just returning
+a status code.  Applies to checking status or station.
+.It Fl m
+Multiple record format.  Includes
+.Xr pianod's
+end-of-data message at the end of the output, which is extraneous
+for single records but useful when processing multiple records.
+.It Fl r
+Report remaining time in current track.  Returned as a number of
+seconds, suitable for passing to
+.Xr sleep 1 .
+.It Fl s
+Check if a station is selected.  Result is indicated only by
+exit status; use with -v to get station type and name.
+.It Fl h Ar host
+The host on which
+.Xr pianod
+is running.  Defaults to localhost, or $PIANOD_HOST if set.
+.It Fl p Ar port
+The port at which to connect to
+.Xr pianod .
+By default, connections are attempted at 4445.
+.Nm
+can connect to either the line or HTTP port.
+.It Fl U Ar user
+The user to authenticate on the server.  Not all commands require
+authentication; if neither this option or the corresponding environment
+variable are indicated, then authentication is not performed.
+.It Fl P Ar password
+The password to authenticate with.
+.El                      \" Ends the list
+.Pp
+.Sh ENVIRONMENT
+.Bl -tag -width "ENV_VAR_1" -indent \" ENV_VAR_1 is width of the string ENV_VAR_1
+.It Ev PIANOD_HOST
+The
+.Xr pianod
+host to connect to.
+.It Ev PIANOD_PORT
+The port at which to connect to
+.Xr pianod .
+.It Ev PIANOD_USER
+The username to authenticate with.
+.It Ev PIANOD_PASSWORD
+The password with which to authenticate.
+.El                      
+.Sh FILES                \" File used or created by the topic of the man page
+None.
+.\" .Bl -tag -width "~/.config/pianod/startscript" -compact "~/.config/pianod/config" -compact
+.\" .It Pa ~/.config/pianod/startscript
+.\" A series of commands run with administrator privileges on startup.
+.\" .El                      \" Ends the list
+.\" .Sh DIAGNOSTICS       \" May not be needed
+.\" .Bl -diag
+.\" .It Fl -Z value
+.\" .El
+.Sh RETURN VALUES
+.Bl -tag -width "255"
+.It 0
+if the command succeeds, or the server is playing (including being between
+tracks or stalled), or there is a selected station
+.It 1
+in the event of a server error response, or the server is not playing,
+or there is no selected station
+.It 255
+if the server cannot be reached, does not respond, or otherwise
+does something unexpected
+.El
+.Sh AUTHOR
+.nm
+Perette Barella <perette@deviousfish.com>.
+.Sh COPYRIGHT
+Copyright Perette Barella.
+.Nm
+is available under the MIT license.
+.Sh SEE ALSO 
+.\" List links in ascending order by section, alphabetically within a section.
+.\" Please do not reference files that do not exist without filing a bug report
+.Xr pianod 1 , 
+.Xr runmix 1 ,
+.Xr football 3
+.\" .Sh BUGS              \" Document known, unremedied bugs 
+.\" .Sh HISTORY           \" Document history if command behaves in a unique manner

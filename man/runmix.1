@@ -1,0 +1,172 @@
+.\"Modified from man(1) of FreeBSD, the NetBSD mdoc.template, and mdoc.samples.
+.\"See Also:
+.\"man mdoc.samples for a complete listing of options
+.\"man mdoc for the short list of editing options
+.\"/usr/share/misc/mdoc.template
+.Dd 2012-04-15               \" DATE 
+.Dt runmix 1      \" Program name and manual section number 
+.Os UNIX/Linux/Darwin
+.Sh NAME                 \" Section Header - required - don't modify 
+.Nm runmix
+.\" The following lines are read in generating the apropos(man -k) database. Use only key
+.\" words here as the database is built based on the words here and in the .ND line. 
+.\" .Nm Other_name_for_same_program(),
+.\" .Nm Yet another name for the same program.
+.\" Use .Nm macro to designate other names for the documented program.
+.Nd Automate music mixing with
+.Xr pianod 1 .
+.Sh SYNOPSIS			\" Section Header - required - don't modify
+.Nm
+.\" Fl = flags, Ar = argument
+.Op Fl cn
+.\" .Op Fl P Ar password
+.Op Ar mixplan
+.Sh DESCRIPTION          \" Section Header - required - don't modify
+.Nm
+evaluates and runs a mixplan.
+A mixplan is a simple declarative program that describes what Pandora
+stations to mix at particular times.  Each line features a time in 24-hour
+format followed by a list of stations, separated by plus (+) signs.
+Times must be in chronological order
+or
+.Nm
+considers it an error.
+.Pp
+.Nm
+allows 2 pseudo genres:
+.Xr start
+requests the player start playback at the specified time, and
+.Xr stop
+requests stopping at the specified time.
+.Pp
+.Nm
+also allows the Pandora account to be selected.  This must occur
+as the first directive of the file with the keyword
+.Xr user
+instead of a time, followed by the pianod username.  The requested user
+must have their Pandora credentials registered in pianod.
+.Pp
+Comments are formed by hash/pound sign (#this is a comment) or using
+double-slash, //as in this form.
+.Pp
+.Nm
+assumes the plan starts today.  If the first time is later in the day,
+it schedules playback to start then.  If, however, there are mix definitions
+prior to the present time of day, they are ignored except for the single
+station set prior to the present time, which is selected immediately.
+Times may wrap past midnight once.
+.Pp
+.Nm
+uses
+.Xr at 1
+to schedule station changes according to the mixplan.
+.\" Use the .Nm macro to refer to your program throughout the man page like such:
+.\" .Nm
+.\" Underlining is accomplished with the .Ar macro like this:
+.\" .Ar underlined text .
+.\" .Pp                      \" Inserts a space
+.\" A list of items with descriptions:
+.\" .Bl -tag -width -indent  \" Begins a tagged list 
+.\" .It item a               \" Each item preceded by .It macro
+.\" Description of item a
+.\" .It item b
+.\" Description of item b
+.\" .El                      \" Ends the list
+.\" .Pp
+.Sh OPTIONS
+.Bl -tag -width -indent  \" Differs from above in tag removed 
+.It Fl n
+Evaluate the mixplan without running it.
+.It Fl c
+Cancel mixing.  This clears all future
+.Xr at 1
+jobs, which may potentially affect other processes if they are using
+.Xr at 1
+for scheduling.
+.El                      \" Ends the list
+.Pp
+.Sh PLATFORM SPECIFIC SUPPORT      \" May not be needed
+.Bl -tag -width "MAC OS X" -compact "OS X" -compact
+.It MAC OS X
+.Xr Finder
+will launch shell scripts in a
+.Xr Terminal
+window if they have the extension
+.Xr command .
+.Nm
+recognizes being invoked as
+.Xr runmix.command
+and presents a file dialog if invoked without parameters.  Note
+.Nm
+must be natively named runmix.command; a symbolic link will not work.
+.Pp
+If an mix is already scheduled (there are things in the
+.Xr at 1
+queue),
+.Nm
+lets the user choose between cancelling the existing mix, choosing a
+new one, or no action.
+.Pp
+When using
+.Nm
+on OS X in any form,
+.Xr at 1
+job processing must be enabled:
+.Pp
+.Xr "sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.atrun.plist"
+.El                      \" Ends the list
+.Pp
+.Sh ENVIRONMENT      \" May not be needed
+.Bl -tag -width "ENV_VAR_1" -indent \" ENV_VAR_1 is width of the string ENV_VAR_1
+.It Ev PIANOD_HOST
+The
+.Xr pianod
+host to connect to.
+.It Ev PIANOD_PORT
+The port at which to connect to
+.Xr pianod .
+.It Ev PIANOD_USER
+The username to authenticate with.
+.It Ev PIANOD_PASSWORD
+The password with which to authenticate.
+.El                      
+.Sh FILES                \" File used or created by the topic of the man page
+.Bl -tag -width "~/Music/Mixes" -compact "~/Music/Mixes" -compact
+.It Pa ~/Music/Mixes
+Directory in which mixes are expected to be found on OS X.  If the directory
+is not found, tries ~/Music, ~, and so forth back to /.
+.El                      \" Ends the list
+.\" .Sh DIAGNOSTICS       \" May not be needed
+.\" .Bl -diag
+.\" .It Fl -Z value
+.\" .El
+.Sh RETURN VALUES
+.Bl -tag -width "255"
+.It 0
+if the mixplan is valid
+.It 1
+if the mixplan is not valid
+.El
+.Sh SEE ALSO 
+.\" List links in ascending order by section, alphabetically within a section.
+.\" Please do not reference files that do not exist without filing a bug report
+.Xr at 1 , 
+.Xr piano 1 , 
+.Xr pianod 1 ,
+.Xr football 3
+.Pp
+Example mixplans at deviousfish.com/pianod.
+.Sh BUGS              \" Document known, unremedied bugs 
+The -c option will delete unrelated jobs from the
+.Xr at 1
+queue.
+.Pp
+Mixplans crossing two midnights won't work as expected.
+.\" .Sh HISTORY           \" Document history if command behaves in a unique manner
+.Sh AUTHOR
+.nm
+Perette Barella <perette@deviousfish.com>.
+.Sh COPYRIGHT
+Copyright Perette Barella.
+.Nm
+is available under the MIT license.

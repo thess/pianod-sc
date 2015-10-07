@@ -1,0 +1,246 @@
+#!/bin/ksh
+
+######################################################################
+# Program:	piano
+# Purpose:	Issues a command to a pianod server, parses the
+#		response into a useful something.
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+
+
+######################################################################
+# Function:	usage
+# Purpose:	Displays the usage of this command.
+#---------------------------------------------------------------------
+function usage
+{
+	print "Usage: $arg0 [-c] [-d] [-m] [-v] [ -r ] [ -s ] [-p port] [-h host] [pianod command]"
+	print "Issues a command to the pianod server.  If no command is given,"
+	print "queries the server to see if it is playing."
+	print "   -v        : Verbose.  Outputs status text."
+	print "   -c        : Output the status code instead of text."
+	print "   -d        : Data only, strip the field key names."
+	print "   -m        : Multiple.  Includes end-of-data message after last record."
+	print "   -s        : Indicated if a station is selected.  Use with -v to get name."
+	print "   -r        : Remaining playback time, in seconds."
+	print "   -h host   : Use pianod server on host."
+	print "   -p port   : Connect on port instead of 4445."
+	print "   -U user   : The user to login as."
+	print "   -P passwd : The password to login with."
+	exit 1
+}
+##### End of function usage #####
+
+
+
+######################################################################
+# Function:	output_response
+# Purpose:	Formats the output per -v, -d, and -c options
+# Returns:	Nothing
+#---------------------------------------------------------------------
+function output_response
+{
+	typeset status="$1" keyword="$2" value="$3"
+	$VERBOSE || return
+
+	# Playback status messages don't follow normal formatting rules
+	if [ $status -eq 103 -o $status -eq 104 ]
+	then
+		# No value field
+		if $CODE
+		then
+			$DATAONLY && print "$status"
+			$DATAONLY || print "$status $keyword"
+		else
+			$DATAONLY || print "$keyword"
+		fi
+		return
+	fi
+	if [ $status -eq 101 -o $status -eq 102 -o $status -eq 106 ]
+	then
+		# Wonky field order; this makes more sense.
+		keyword="$3" value="$2"
+	fi
+		
+	if $CODE
+	then
+		$DATAONLY && print "$status $value"
+		$DATAONLY || print "$status $keyword $value"
+	else
+		$DATAONLY && print "$value"
+		$DATAONLY || print "$keyword $value"
+	fi
+}
+##### End of function output_response #####
+
+
+
+
+######################################################################
+# Function:	Various callback functions
+# Purpose:	Called when a response code is matched to do what is
+#		required with the value.
+#---------------------------------------------------------------------
+# Callback function that outputs nothing; return status is 0 if playing.
+# (Intertrack and stalled are considered playing, because they are trying.)
+function return_status
+{
+	typeset code="$1"
+	[ $code -eq 101 -o $code -eq 104 -o $code -eq 106 ]
+	return $?
+}
+
+# Callback function that indicates if there is a selected station.
+function report_station
+{
+	typeset code="$1"
+	[ $code -eq 109 ]
+	return $?
+}
+
+# Callback function that reports remaining time in current track
+function remaining_time
+{
+	typeset code="$1" time="$2" min sec
+	[ $code -ne 101 -a $code -ne 102 -a $code -ne 106 ] && return 1
+	typeset remain=$(print -- "$time" | cut -d' ' -f1 | cut -d/ -f3)
+	print -- "${remain#-}" | IFS=: read min sec
+	print $(( ${min#0} * 60 + ${sec#0} ))
+	return 0
+}
+
+
+
+
+######################################################################
+# Function:	parse_arguments
+# Purpose:	Parses the command line arguments
+# Arguments:	The command line arguments.
+# Returns:	Number of arguments parsed.
+#---------------------------------------------------------------------
+function parse_arguments
+{
+typeset option
+while getopts 'cdmvrsU:P:p:h:' option
+do
+	case "$option" in
+		c)	CODE=true ;;
+		d)	DATAONLY=true ;;
+		v)	VERBOSE=true ;;
+		m)	MULTIPLE=true ;;
+		U)	USER="$OPTARG" ;;
+		P)	PASSWORD="$OPTARG" ;;
+		p)	PORT="$OPTARG" ;;
+		h)	HOST="$OPTARG" ;;
+		s)	GETFIELD='108|109'
+			GETACTION=report_station ;;
+		r)	GETFIELD="101|102|103|104|106"
+			GETACTION=remaining_time ;;
+		*)	usage ;;
+	esac
+done
+typeset status=0
+return $((OPTIND - 1))
+}
+##### End of function parse_arguments #####
+
+
+
+
+##### Start of main #####
+
+arg0=$(basename $0)
+
+CODE=false
+DATAONLY=false
+VERBOSE=false
+MULTIPLE=false
+HOST="${PIANOD_HOST:-localhost}"
+PORT="${PIANOD_PORT:-4445}"
+USER="${PIANOD_USER}"
+PASSWORD="${PIANOD_PASSWORD}"
+GETFIELD=""
+parse_arguments "$@"
+shift $?
+
+# First success is connect
+connecting=true
+
+# If there is one argument, it's either one term or a whole statement
+# that's been properly quoted already.
+# If there are multiple arguments, add quotes around each term since
+# the caller did not.
+command=""
+if [ $# -eq 0 ]
+then
+	if [ "$GETFIELD" = "" ]
+	then
+		# No command--get server status instead
+		GETFIELD="101|102|103|104|106"
+		GETACTION=return_status
+	fi
+elif [ $# -eq 1 ]
+then
+	command="$1"
+else
+	for term in "$@"
+	do
+		command="$command \"$term\""
+	done
+fi
+
+
+asuser=""
+[ "$USER" != "" ] && asuser="AS USER \"$USER\" \"$PASSWORD\""
+(print "HELO pianod"; print "$asuser $command") | nc "$HOST" "$PORT" | while read status keyword value
+do
+	if [ "$GETFIELD" != "" ]
+	then
+		# Looking for a certain field.  If found, handle it.
+		if [ $(print -- "$status" | egrep -c "^($GETFIELD)\$") -ne 0 ]
+		then
+			output_response "$status" "$keyword" "$value"
+			eval "$GETACTION \"$status\" \"$keyword\" \"$value\""
+			exit $?
+		fi
+	fi
+	if [ $status -eq 200 -a $connecting = "true" ]
+	then
+		connecting=false
+	elif [ $status -ge 200 -a $status -lt 300 ]
+	then
+		# Handle data response
+		if [ $status -eq 203 ]
+		then
+			VERBOSE=true
+			while read status keyword value
+			do
+				if [ $status -ne 204 ]
+				then
+					output_response "$status" "$keyword" "$value"
+				else
+					$MULTIPLE && output_response "$status" "$keyword" "$value"
+					exit 0
+				fi
+			done
+			exit 1
+		fi
+		if [ "$MULTIPLE" = "true" -a $status -eq 204 ]
+		then
+			VERBOSE=true
+			output_response "$status" "$keyword" "$value"
+			exit 0
+		fi
+		output_response "$status" "$keyword" "$value" 1>&2
+		exit 0
+	elif [ $status -ge 400 -a $status -lt 500 ]
+	then
+		output_response "$status" "$keyword" "$value" 1>&2
+		exit 1
+	fi
+done
+$VERBOSE && print "$arg0: Server communication error." 1>&2
+exit 255
+
+##### End of main #####
+

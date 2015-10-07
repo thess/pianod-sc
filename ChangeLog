@@ -1,0 +1,27 @@
+STATUS SUMMARY
+--------------
+What's in:
+* Playback control, station selection and management, QuickMix control,
+  upcoming playlist/queue, previously played/history, skip limiting,
+  seed & rating management, audio quality control, connection and
+  Pandora account settings, manual page, user management, user
+  station preferences & automatic station selection ("autotuning").
+* piano shell script for control and command-line access
+* Good stability/reliability on OS X and Linux.
+* runmix pleasantly functional; may need some portability work.
+* Recognizes startup as root, uses files from /etc and drops root
+  priviliges to improve security.
+
+Caveats:
+* Occasional playback stalls at the start of a song on OS X/PPC.
+  It looks like the player thread is stuck on a mutex in libao.
+ 
+FUTURE ROADMAP
+--------------
+Features planned:
+* None.  It's done!
+
+RECENT CHANGES
+--------------
+For a list of changes please see the SVN logs.
+

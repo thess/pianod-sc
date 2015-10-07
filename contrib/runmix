@@ -1,0 +1,435 @@
+#!/bin/ksh
+
+######################################################################
+# Program:	runmix
+# Purpose:	Schedules a mixplan to run
+# Caveats:	Deletes all jobs in the at queue, even if they aren't
+#		from another mix.
+# Arguments:	Filename
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+
+
+
+
+######################################################################
+# Function:	usage
+# Purpose:	Displays the usage of this command.
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+function usage
+{
+	print "Usage: $arg0 [-n] [-c]  <filename>"
+	print "  -c : Clear the queue and stop the music."
+	print "  -n : Displays commands without executing"
+	exit 1
+}
+##### End of function usage #####
+
+
+
+
+######################################################################
+# Function:	parse_arguments
+# Purpose:	Parses the command line arguments
+# Arguments:	The command line arguments.
+# Returns:	Number of arguments parsed.
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+function parse_arguments
+{
+	TRIAL=false
+	CLEAR=false
+	typeset option
+	while getopts 'cn?' option
+	do
+		case "$option" in
+			c)	CLEAR=true ;;
+			n)	TRIAL=true ;;
+			*)	usage ;;
+		esac
+	done
+	typeset status=0
+	return $((OPTIND - 1))
+}
+##### End of function parse_arguments #####
+
+
+
+
+
+
+
+######################################################################
+# Function:	time_to_minute
+# Purpose:	Calculates the time as a number, HHMM format.
+# Arguments:	Time.
+# Returns:	The time as a number.
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+function time_to_minute
+{
+	typeset hour minute min
+	if expr "$1" : '[012]\{0,1\}[0-9]:[0-5][0-9]$' >/dev/null
+	then
+		print -- "$1" | IFS=: read hour min
+		# Make hour 2-digit so leading 0 can be stripped for 00:xx.
+		[ ${#hour} -eq 1 ] && hour="0$hour"
+		[ $hour -lt 0 -o $hour -gt 23 -o $min -lt 0 -o $min -gt 59 ] &&
+			return 1
+		let "minute = ${hour#0} * 100 + ${min#0}"
+		print -- $minute
+		return 0
+	fi
+	return 1
+}
+##### End of function time_to_minute #####
+
+
+
+
+
+
+######################################################################
+# Function:	validate_list
+# Purpose:	Validates the station list from the command line.
+# Arguments:	The list of stations
+# Returns:	0 on ok, >0 on error found
+#		A piano command sequence is sent to standard out.
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+function validate_list
+{
+	typeset time genres search stationlist status=0 line=0 i user
+	typeset previous_time this_time first=true
+
+	# Read stdin, stripping out comments
+	sed -E -e 's&//.*$&&' -e 's/#.*$//' | while read time genres
+	do
+		let line=line+1
+		[ "$time" = "" ] && continue
+		if [ "$time" = "user" ]
+		then
+			if ! $first
+			then
+				print "line $line: user must be first command of mixplan." 1>&2
+				status=1
+			fi
+			
+			if ! piano pandora use "$genres"
+			then
+				print "$arg0: Unable to switch to Pandora account for '$genres'." 1>&2
+				return 1
+			fi
+			first=false
+			continue
+		fi
+		first=false
+		if [ "$genres" = "stop" ]
+		then
+			print "$time stop"
+			continue
+		elif [ "$genres" = "start" ]
+		then
+			print "$time play mix"
+			continue
+		fi
+		# Make sure times always increment
+		if this_time=$(time_to_minute "$time")
+		then
+			if [ "$previous_time" = "" ]
+			then
+				previous_time="$this_time"
+			elif [ $previous_time -gt $this_time -a \
+			       \( $previous_time -lt 1200 -o \
+				  $this_time -gt 1200 \) ]
+			then
+				print "line $line: Time travel unsupported." 1>&2
+				status=1
+			else
+				previous_time="$this_time"
+			fi
+		else
+			print "line $line: Invalid time: $time" 1>&2
+			status=1
+		fi
+		# sed:
+		#	Strip whitespace off front & back
+		#	turn + operators & surrounding space to regex alternation
+		#	change spaces and anything not a word into match anything
+		search="$(print -- "$genres" |
+			  sed -E \
+				-e 's/[ 	]+/ /g' \
+				-e 's/^ //g' \
+				-e 's/ *$//g' \
+			 	-e 's/ ?\+ ?/|/g' \
+				-e 's/[^A-Za-z0-9|]+/ (.* )?/g' )"
+		# Validate that there are stations for each alteration
+		typeset countstring="$(print "$search" | sed 's/[^|]//g')"
+		typeset count=${#countstring}
+		let count=count+1
+		i=1
+		while [ $i -le $count ]
+		do
+			typeset pattern="$(print "$search" | awk -F'|' "{print \$$i}")"
+			typeset matches=$(grep -Eic "$pattern" "$stations")
+			case "$matches" in
+				0) print "line $line: '$pattern' does not match any stations." |
+				   sed -E 's/\(\.\* \)\?//g' 1>&2
+				   status=1 ;;
+				1) : ;;
+				*) print "line $line: $pattern matches multiple stations." |
+				   sed -E 's/\(\.\* \)\?//g' 1>&2
+			esac
+			let i=i+1
+		done
+		# Form the command in a more straightforward manner
+		stationlist=""
+		egrep -i "^$search" "$stations" | while read station
+		do
+			stationlist="$stationlist \"$station\""
+		done
+		if [ "$stationlist" != "" ]
+		then
+			print -- "$time mix set $stationlist"
+		fi
+	done
+	return $status
+}
+##### End of function validate_list #####
+
+
+
+
+
+######################################################################
+# Function:	execute_list
+# Purpose:	Schedule the playlist to execute using at(1)
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+function execute_list
+{
+	typeset time command first="; piano 'play mix'" first_command=""
+	now=$(time_to_minute $(date '+%H:%M')) || status=1
+	while read time command
+	do
+		if [ "$time" = "now" ]
+		then
+			piano "$command"
+			[ "$first" != "" ] && piano "play mix"
+			first=""
+		elif [ "$command" = "stop" ]
+		then
+			print "$dir0/$arg0 -c" | at $time
+		else
+			cmd_time=$(time_to_minute "$time")
+			if [ $cmd_time -le $now ]
+			then
+				[ "$first_command" != "" ] &&
+					print -- "Already passed: $first_command" 1>&2
+				first_command="$command"
+			else
+				now=-1
+				if [ "$first_command" != "" ]
+				then
+					print -- "Running now: $first_command" 1>&2
+					piano "$first_command"
+					[ "$first" != "" ] && piano "play mix"
+					first_command=""
+					first=""
+				fi
+				print "piano '$command' $first" | at $time
+				first=""
+			fi
+		fi
+	done
+	return 0
+}
+##### End of function execute_list #####
+
+
+
+
+
+
+
+######################################################################
+# Function:	clear_at_queue
+# Purpose:	Removes all jobs in the atq.
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+function clear_at_queue
+{
+	typeset job
+	for job in $(atq | awk '{print $1}')
+	do
+		if [ "$job" = "Date" ]
+		then
+			# Handle the other version of 'at'
+			for job in $(atq | tail +2 | awk '{print $8}')
+			do
+				at -r $job
+			done
+			return
+		fi
+		at -r $job
+	done
+}
+##### End of function clear_at_queue #####
+
+
+
+
+
+######################################################################
+# Function:	mac_file_dialog
+# Purpose:	Present a file dialog using Applescript to
+#		let the user choose a file and run a mix.
+# Arguments:	None.
+# Returns:	0 on success, non-0 on error.
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+function mac_file_dialog
+{
+	# If a mix is already running, ask what to do first.
+	typeset queue="$(atq)" answer
+	if [ "$queue" != "" ]
+	then
+		answer="$(osascript << EOF
+tell application "System Events"
+activate
+	return display dialog "There is a mix already in progress.  Cancel the existing mix?" buttons {"Cancel current mix", "Choose new mix", "Nevermind"} default button 2
+end tell
+EOF
+)"
+		[ "$answer" = "button returned:Nevermind" ] && return 1
+		if [ "$answer" = "button returned:Cancel current mix" ]
+		then
+			clear_at_queue
+			piano yell "Automix cancelled from $(uname -n)."
+			return 1
+		fi
+	fi
+	# Do the file dialog
+	typeset location="$HOME/Music/Mixes"
+	while [ "$location" != "/" -a ! -d "$location" ]
+	do
+		location="$(dirname "$location")"
+	done
+	osascript << EOF 2>&1
+tell application "Finder"
+    set mixes to POSIX file "$location"
+    activate
+    set mixAlias to choose file with prompt "Please choose a mix to run" of type {"mix", "txt"} default location mixes
+    set mixPath to POSIX path of mixAlias
+    return mixPath
+end tell
+EOF
+	return $?
+}
+##### End of function mac_file_dialog #####
+
+
+
+
+######################################################################
+# Function:	mac_info_dialog
+# Purpose:	Displays an information dialog.
+# Arguments:	The text of the dialog.
+# Returns:	Nothing.
+# Author:	Perette Barella
+#---------------------------------------------------------------------
+function mac_info_dialog
+{
+	osascript << EOF 2>&1
+tell application "Finder"
+    activate
+    display dialog "$*" buttons { "Close" } with icon 2
+end tell
+EOF
+}
+##### End of function mac_info_dialog #####
+
+
+
+
+
+
+
+
+
+##### Start of main #####
+
+arg0=$(basename $0)
+dir0=$(dirname $0)
+plan=/var/tmp/$arg0.$$.plan
+stations=/var/tmp/$arg0.$$.stations
+gui=false
+
+parse_arguments "$@"
+shift $?
+
+if $CLEAR
+then
+	clear_at_queue
+	piano yell "Automix cancelled from $(uname -n)."
+	[ $# -gt 0 ] && usage
+	exit 0
+fi
+
+# If there are no parameters, and this is OS X, and we were invoked as
+# <something>.command, then do an Applescript file dialog to set $1.
+if [ $# -eq 0 -a "$(uname -s)" = "Darwin" -a \
+     $(print -- "$arg0" | awk -F. '{ print $NF}') = "command" ]
+then
+	if ! piano quit > /dev/null 2>&1
+	then
+		mac_info_dialog 'Cannot connect to pianod.  Please check' \
+				'configuration and network.'
+		exit 1
+	fi
+	gui=true
+	file=$(mac_file_dialog) || exit 1
+	set "$file"
+fi
+
+# There should be one argument left
+[ $# -ne 1 ] && usage
+
+if [ ! -f "$1" ]
+then
+	print "$1: File does not exist."
+	exit 1
+fi
+
+status=1
+if piano -d stations > "$stations"
+then
+	if validate_list < "$1" > "$plan"
+	then
+		status=0
+		cat "$plan"
+		if [ "$TRIAL" = "false" ]
+		then
+			# Remove previous mixes
+			clear_at_queue
+			# Schedule new mix
+			if execute_list < "$plan"
+			then
+				piano yell "Automix $(basename "$1") invoked from $(uname -n)."
+				status=0
+			fi
+		fi
+	elif $gui
+	then
+		mac_info_dialog 'Mix validation failed.  Check the' \
+				'console window for details.'
+	fi
+else
+	print "$arg0: Could not get station list." 1>&2
+fi
+rm -f "$plan" "$stations"
+exit $status
+
+##### End of main #####
+
