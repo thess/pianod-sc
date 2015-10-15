@@ -39,6 +39,8 @@ THE SOFTWARE.
  * http://pan-do-ra-api.wikia.com
  */
 
+#define LIBPIANO_NAME "libpiano"
+
 #define PIANO_RPC_HOST "tuner.pandora.com"
 #define PIANO_RPC_PATH "/services/json/?"
 

@@ -568,8 +568,11 @@ static bool initialize_libraries (APPSTATE *app) {
 	gcry_check_version (NULL);
 	gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
 	gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
+
+#if !defined(USE_POLARSSL)
 	int crystatus = gnutls_global_init ();
 	if (crystatus == GNUTLS_E_SUCCESS) {
+#endif
 		PianoReturn_t status = PianoInit (&app->ph, app->settings.partnerUser, app->settings.partnerPassword,
 										  app->settings.device, app->settings.inkey, app->settings.outkey);
 		if (status == PIANO_RET_OK) {
@@ -582,11 +585,13 @@ static bool initialize_libraries (APPSTATE *app) {
 		} else {
 			flog (LOG_ERROR, "initialize_libraries: PianoInit: %s", PianoErrorToStr (status));
 		}
+#if !defined(USE_POLARSSL)
 		gnutls_global_deinit ();
 	} else {
 		flog (LOG_ERROR, "initialize_libraries: gnutls_global_init: %s", gcry_strerror (crystatus));
 
 	}
+#endif
 	return false;
 }
 
@@ -789,7 +794,9 @@ int main (int argc, char **argv) {
 		PianoDestroyPlaylist (app.song_history);
 		PianoDestroyPlaylist (app.playlist);
 		WaitressFree (&app.waith);
+#if !defined(USE_POLARSSL)
 		gnutls_global_deinit ();
+#endif
 		settings_destroy (&app.settings);
 	}
 	

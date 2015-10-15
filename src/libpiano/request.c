@@ -40,6 +40,7 @@ THE SOFTWARE.
 #include <stdio.h>
 #include <string.h>
 /* needed for urlencode */
+#include <config.h>
 #include <waitress.h>
 
 #include "piano.h"
