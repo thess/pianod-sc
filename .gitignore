@@ -12,6 +12,7 @@ config.log
 config.status
 config.sub
 configure
+config.h
 depcomp
 install-sh
 Makefile
@@ -19,3 +20,4 @@ Makefile.in
 missing
 stamp-h1
 src/pianod
+src/include/*.h
