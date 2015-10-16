@@ -49,7 +49,7 @@ void *sc_service_thread(void *);
 #define ICY_BUFSIZE	(10 * 1024 + (144 * (192000 / 44100)))
 
 
-// list of available shoutcast data buffers 
+// list of available shoutcast data buffers
 static stream_data *icy_head;
 pthread_mutex_t icy_mutex;	// Mutex for buffer list
 
@@ -248,7 +248,7 @@ int sc_start_service(sc_service *svc)
 		}
 		return 0;
 	}
-	
+
 	return -1;
 }
 
@@ -275,7 +275,7 @@ void *sc_service_thread(void *arg)
 			shout_close(svc->shout);
 			// Reconnect (wait forever)
 			sc_shout_connect(svc, 1);
-			// Re-try (cleanup) queue 
+			// Re-try (cleanup) queue
 			continue;
 		}
 
@@ -310,7 +310,7 @@ void *sc_service_thread(void *arg)
 			data = (stream_data *)msg.data;
 			// Make sure output stream is ready
 			shout_sync(svc->shout);
-			ret = shout_send(svc->shout, &data->buf[0], data->len); 
+			ret = shout_send(svc->shout, &data->buf[0], data->len);
 			if (ret != SHOUTERR_SUCCESS) {
 				flog(LOG_WARNING, "%s: Service disconnected", ourname);
 				// Handle reconnect, etc
@@ -318,7 +318,7 @@ void *sc_service_thread(void *arg)
 				retry = 1;
 				break;
 			}
-			
+
 			// Release data
 			sc_buffer_release(data);
 			retry = 0;

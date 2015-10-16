@@ -1145,9 +1145,9 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 #if defined(ENABLE_CAPTURE)
 		/* Stream capture */
 		case GETCAPTUREPATH:
-			report_setting (event, I_CAPTUREPATH, 
+			report_setting (event, I_CAPTUREPATH,
 					(app->settings.capture_pathlen) ? app->settings.capture_path : "capture off");
-			return;			
+			return;
 
 		case SETCAPTUREPATH:
 			/* Check if we will terminate at end of song */

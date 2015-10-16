@@ -684,8 +684,8 @@ void ripit_open_file(struct audioPlayer *player, PianoSong_t *song)
 	/* Fill it in */
 	strcpy(file_name, player->settings->capture_path);
 	if (file_name[player->settings->capture_pathlen - 1] != '/') {
-		file_name[player->settings->capture_pathlen] = '/'; 
-		file_name[player->settings->capture_pathlen + 1] = '\0'; 
+		file_name[player->settings->capture_pathlen] = '/';
+		file_name[player->settings->capture_pathlen + 1] = '\0';
 	}
 
 	ripit_normalize_strcat(file_name, song->artist);
@@ -715,7 +715,7 @@ void ripit_close_file(struct audioPlayer *player)
 void ripit_write_stream(struct audioPlayer *player)
 {
 	if (player->ripit_file) {
-		fwrite(player->buffer, sizeof(char), 
+		fwrite(player->buffer, sizeof(char),
 		       player->bufferRead,
 		       player->ripit_file);
 	}

@@ -169,7 +169,7 @@ static void playback_start (APPSTATE *app, pthread_t *playerThread) {
 		/* prevent race condition, mode must _not_ be FREED if
 		 * thread has been started */
 		app->player.mode = PLAYER_STARTING;
-		
+
 #if defined(ENABLE_CAPTURE)
 		/* open stream capture file if path given */
 		if (app->settings.capture_pathlen > 0) {
@@ -517,7 +517,7 @@ static void pianod_run_loop (APPSTATE *app) {
 							}
 						}
 					}
-#endif					
+#endif
 					playback_start (app, &playerThread);
 					send_song_info (app->service, app, app->current_song);
 					announce_station_ratings (app, NULL);

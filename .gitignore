@@ -1,6 +1,7 @@
 *.o
 *.a
 *~
+._*
 .deps
 .dirstamp
 .DS_Store
