@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 AC_INIT([pianod],
-	m4_esyscmd([svn info http://svn.deviousfish.com/pianod | grep Revision: | awk '{print $2}' | tr -d '\n'])-sc,
+	174-sc,
 	[pianod@lists.deviousfish.com],
 	,[http://deviousfish.com/pianod])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
