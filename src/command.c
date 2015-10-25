@@ -150,6 +150,8 @@ static FB_PARSE_DEFINITION adminstatements[] = {
 	{ SETCONTROLPROXY,	"set control proxy {url}" },					/* Set the proxy for control connection only */
 	{ GETPAUSETIMEOUT,	"get pause timeout" },							/* Duration before paused track is killed */
 	{ SETPAUSETIMEOUT,	"set pause timeout {#duration:15-86400}" },		/* Set aforementioned duration */
+	{ GETPANDORARETRY,	"get pandora retry" },		/* Login retry timeout */
+	{ SETPANDORARETRY,	"set pandora retry {#duration:5-300}" },
 	{ GETPLAYLISTTIMEOUT, "get playlist timeout" },						/* Duration before playlist expires */
 	{ SETPLAYLISTTIMEOUT, "set playlist timeout {#duration:1800-86400}" },
                                                                         /* Set aforementioned duration */
@@ -1224,6 +1226,17 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
             app->settings.playlist_expiration = i;
             fb_fprintf (app->service, "%03d %s: %d\n", I_PLAYLIST_TIMEOUT, Response (I_PLAYLIST_TIMEOUT), i);
             reply (event, S_OK);
+			return;
+		case GETPANDORARETRY:
+			reply (event, S_DATA);
+			fb_fprintf (event, "%03d %s: %d\n", I_PANDORA_RETRY, Response (I_PANDORA_RETRY), app->settings.pandora_retry);
+			reply (event, S_DATA_END);
+			return;
+		case SETPANDORARETRY:
+			i = atoi (event->argv [3]);
+			app->settings.pandora_retry = i;
+			fb_fprintf (app->service, "%03d %s: %d\n", I_PANDORA_RETRY, Response (I_PANDORA_RETRY), i);
+			reply (event, S_OK);
 			return;
 		case GETPROXY:
 			report_setting (event, I_PROXY, app->settings.proxy);

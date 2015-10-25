@@ -78,6 +78,7 @@ char *Response (RESPONSE_CODE response) {
 #endif
 		case I_HISTORYSIZE:		return "HistoryLength";
 		case I_AUTOTUNE_MODE:	return "AutotuneMode";
+		case I_PANDORA_RETRY:	return "PandoraRetry";
 		case I_PAUSE_TIMEOUT:	return "PauseTimeout";
 		case I_PLAYLIST_TIMEOUT:return "PlaylistTimeout";
 		case I_PROXY:			return "Proxy";

@@ -50,6 +50,7 @@ typedef enum server_status_t {
 	I_HISTORYSIZE = 142,
 	I_AUDIOQUALITY = 143,
 	I_AUTOTUNE_MODE = 144,
+	I_PANDORA_RETRY =145,
 	I_PAUSE_TIMEOUT = 146,
 	I_PLAYLIST_TIMEOUT = 147,
 	/* Pandora communication settings */

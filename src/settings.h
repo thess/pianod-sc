@@ -46,6 +46,7 @@ typedef struct {
 	/* pianobar stuff */
 	char *rpcHost, *rpcTlsPort, *partnerUser, *partnerPassword, *device, *inkey, *outkey;
 	int volume;
+	int pandora_retry;
 	CREDENTIALS pandora;
 	CREDENTIALS pending;
 	char *control_proxy; /* non-american listeners need this */

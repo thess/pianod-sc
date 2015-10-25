@@ -392,7 +392,7 @@ void set_pandora_user (APPSTATE *app, FB_EVENT *event) {
 			data_reply (event, E_REQUESTPENDING, WaitressErrorToStr (wRet));
 		}
 		/* Transient error; retry login again later. */
-		app->retry_login_time = time(NULL) + 60; /* ToDo: Make retry time configurable */
+		app->retry_login_time = time(NULL) + app->settings.pandora_retry; 
 		return;
 	} else if (pRet == PIANO_RET_INVALID_LOGIN) {
 		/* Throw away the bad credentials. */
@@ -409,7 +409,7 @@ void set_pandora_user (APPSTATE *app, FB_EVENT *event) {
 			data_reply (event, E_REQUESTPENDING, PianoErrorToStr (pRet));
 		}
 		/* Transient error; retry login again later. */
-		app->retry_login_time = time(NULL) + 60; /* ToDo: Make retry time configurable */
+		app->retry_login_time = time(NULL) + app->settings.pandora_retry;
 		return;
 	}
 	
