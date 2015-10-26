@@ -261,6 +261,7 @@ void settings_initialize (BarSettings_t *settings) {
 	settings->playlist_expiration = 3600; /* One hour */
 	settings->user_file = strdup (password_file);
 	settings->automatic_mode = TUNE_ON_LOGINS;
+	settings->pandora_retry = 60;
 	
 	memcpy (settings->tlsFingerprint, "\x2D\x0A\xFD\xAF\xA1\x6F\x4B\x5C"
 			"\x0A\x43\xF3\xCB\x1D\x47\x52\xF9\x53\x55\x07\xC0",
