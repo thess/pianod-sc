@@ -263,8 +263,8 @@ void settings_initialize (BarSettings_t *settings) {
 	settings->automatic_mode = TUNE_ON_LOGINS;
 	settings->pandora_retry = 60;
 	
-	memcpy (settings->tlsFingerprint, "\x2D\x0A\xFD\xAF\xA1\x6F\x4B\x5C"
-			"\x0A\x43\xF3\xCB\x1D\x47\x52\xF9\x53\x55\x07\xC0",
+	memcpy (settings->tlsFingerprint, "\x13\xCC\x51\xAC\x0C\x31\xCD\x96"
+            "\xC5\x50\x15\xC7\x69\x14\x36\x0F\x7A\xC4\x1A\x00",
 			sizeof (settings->tlsFingerprint));
 	
 	/* check environment variable if proxy is not set explicitly */
