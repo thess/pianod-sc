@@ -6,6 +6,7 @@ EXTRA_DIST      = piano \
 		  com.deviousfish.pianod.plist \
 		  jukebox \
 		  pianod-fix-tls-fingerprint \
+		  get-tls-fingerprint.sh \
 		  README.init \
 		  pianod.raspbian.init \
 		  README.service \

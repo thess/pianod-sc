@@ -26,6 +26,8 @@ THE SOFTWARE.
 #define _DARWIN_C_SOURCE /* strdup() on OS X */
 #endif
 
+#include <config.h>
+
 #ifdef HAVE_JSON_JSON_H
 #include <json/json.h>
 #elif defined HAVE_JSON_C_JSON_H

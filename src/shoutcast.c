@@ -171,6 +171,7 @@ int sc_stream_setup(sc_service *svc)
 		flog(LOG_ERROR, "%s: shout_set_genre(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
+	// ***TODO*** Set to Pandora station name
 	if (shout_set_description(shout, "Things I listen to") != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_description(): %s", ourname, shout_get_error(shout));
 		return -1;
@@ -188,7 +189,8 @@ int sc_stream_setup(sc_service *svc)
 		return -1;
 	}
 
-	if (shout_set_public(shout, 1) != SHOUTERR_SUCCESS) {
+	// No-yp wanted.
+	if (shout_set_public(shout, 0) != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_public(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}

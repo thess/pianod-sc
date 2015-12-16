@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="pianod-sc" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/pianod-sc" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add directory="./" />
+					<Add directory="src/libpiano" />
+					<Add directory="src/libezxml" />
+					<Add directory="src/libwaitress" />
+					<Add directory="src/libfootball" />
+					<Add directory="/usr/include" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/pianod-sc" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add directory="./" />
+			<Add directory="src/libfootball" />
+			<Add directory="src/libwaitress" />
+		</Compiler>
+		<Unit filename="config.h" />
+		<Unit filename="src/command.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/command.h" />
+		<Unit filename="src/event.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/event.h" />
+		<Unit filename="src/lamercipher.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libezxml/ezxml.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libezxml/ezxml.h" />
+		<Unit filename="src/libfootball/fb_event.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libfootball/fb_http.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libfootball/fb_message.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libfootball/fb_parser.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libfootball/fb_public.h" />
+		<Unit filename="src/libfootball/fb_service.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libfootball/fb_service.h" />
+		<Unit filename="src/libfootball/fb_socketmgr.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libfootball/fb_utility.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libfootball/fgetln.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libfootball/fgetln.h" />
+		<Unit filename="src/libfootball/sha1.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libfootball/sha1.h" />
+		<Unit filename="src/libpiano/crypt.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libpiano/crypt.h" />
+		<Unit filename="src/libpiano/list.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libpiano/piano.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libpiano/piano.h" />
+		<Unit filename="src/libpiano/piano_private.h" />
+		<Unit filename="src/libpiano/request.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libpiano/response.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libwaitress/waitress.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/libwaitress/waitress.h" />
+		<Unit filename="src/logging.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/logging.h" />
+		<Unit filename="src/pianod.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/pianod.h" />
+		<Unit filename="src/pianoextra.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/pianoextra.h" />
+		<Unit filename="src/pink_silence.h" />
+		<Unit filename="src/player.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/player.h" />
+		<Unit filename="src/query.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/query.h" />
+		<Unit filename="src/response.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/response.h" />
+		<Unit filename="src/seeds.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/seeds.h" />
+		<Unit filename="src/settings.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/settings.h" />
+		<Unit filename="src/shoutcast.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/shoutcast.h" />
+		<Unit filename="src/support.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/support.h" />
+		<Unit filename="src/threadqueue.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/threadqueue.h" />
+		<Unit filename="src/tuner.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/tuner.h" />
+		<Unit filename="src/users.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/users.h" />
+		<Extensions>
+			<envvars />
+			<code_completion />
+			<debugger />
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

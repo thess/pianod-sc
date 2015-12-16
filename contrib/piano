@@ -1,4 +1,4 @@
-#!/bin/ksh
+#!/bin/bash
 
 ######################################################################
 # Program:	piano
@@ -14,19 +14,19 @@
 #---------------------------------------------------------------------
 function usage
 {
-	print "Usage: $arg0 [-c] [-d] [-m] [-v] [ -r ] [ -s ] [-p port] [-h host] [pianod command]"
-	print "Issues a command to the pianod server.  If no command is given,"
-	print "queries the server to see if it is playing."
-	print "   -v        : Verbose.  Outputs status text."
-	print "   -c        : Output the status code instead of text."
-	print "   -d        : Data only, strip the field key names."
-	print "   -m        : Multiple.  Includes end-of-data message after last record."
-	print "   -s        : Indicated if a station is selected.  Use with -v to get name."
-	print "   -r        : Remaining playback time, in seconds."
-	print "   -h host   : Use pianod server on host."
-	print "   -p port   : Connect on port instead of 4445."
-	print "   -U user   : The user to login as."
-	print "   -P passwd : The password to login with."
+	echo "Usage: $arg0 [-c] [-d] [-m] [-v] [ -r ] [ -s ] [-p port] [-h host] [pianod command]"
+	echo "Issues a command to the pianod server.  If no command is given,"
+	echo "queries the server to see if it is playing."
+	echo "   -v        : Verbose.  Outputs status text."
+	echo "   -c        : Output the status code instead of text."
+	echo "   -d        : Data only, strip the field key names."
+	echo "   -m        : Multiple.  Includes end-of-data message after last record."
+	echo "   -s        : Indicated if a station is selected.  Use with -v to get name."
+	echo "   -r        : Remaining playback time, in seconds."
+	echo "   -h host   : Use pianod server on host."
+	echo "   -p port   : Connect on port instead of 4445."
+	echo "   -U user   : The user to login as."
+	echo "   -P passwd : The password to login with."
 	exit 1
 }
 ##### End of function usage #####
@@ -49,10 +49,10 @@ function output_response
 		# No value field
 		if $CODE
 		then
-			$DATAONLY && print "$status"
-			$DATAONLY || print "$status $keyword"
+			$DATAONLY && echo "$status"
+			$DATAONLY || echo "$status $keyword"
 		else
-			$DATAONLY || print "$keyword"
+			$DATAONLY || echo "$keyword"
 		fi
 		return
 	fi
@@ -64,11 +64,11 @@ function output_response
 		
 	if $CODE
 	then
-		$DATAONLY && print "$status $value"
-		$DATAONLY || print "$status $keyword $value"
+		$DATAONLY && echo "$status $value"
+		$DATAONLY || echo "$status $keyword $value"
 	else
-		$DATAONLY && print "$value"
-		$DATAONLY || print "$keyword $value"
+		$DATAONLY && echo "$value"
+		$DATAONLY || echo "$keyword $value"
 	fi
 }
 ##### End of function output_response #####
@@ -103,9 +103,9 @@ function remaining_time
 {
 	typeset code="$1" time="$2" min sec
 	[ $code -ne 101 -a $code -ne 102 -a $code -ne 106 ] && return 1
-	typeset remain=$(print -- "$time" | cut -d' ' -f1 | cut -d/ -f3)
-	print -- "${remain#-}" | IFS=: read min sec
-	print $(( ${min#0} * 60 + ${sec#0} ))
+	typeset remain=$(echo -- "$time" | cut -d' ' -f1 | cut -d/ -f3)
+	echo -- "${remain#-}" | IFS=: read min sec
+	echo $(( ${min#0} * 60 + ${sec#0} ))
 	return 0
 }
 
@@ -192,12 +192,12 @@ fi
 
 asuser=""
 [ "$USER" != "" ] && asuser="AS USER \"$USER\" \"$PASSWORD\""
-(print "HELO pianod"; print "$asuser $command") | nc "$HOST" "$PORT" | while read status keyword value
+(echo "HELO pianod"; echo "$asuser $command") | nc "$HOST" "$PORT" | while read status keyword value
 do
 	if [ "$GETFIELD" != "" ]
 	then
 		# Looking for a certain field.  If found, handle it.
-		if [ $(print -- "$status" | egrep -c "^($GETFIELD)\$") -ne 0 ]
+		if [ $(echo -- "$status" | egrep -c "^($GETFIELD)\$") -ne 0 ]
 		then
 			output_response "$status" "$keyword" "$value"
 			eval "$GETACTION \"$status\" \"$keyword\" \"$value\""
@@ -239,7 +239,7 @@ do
 		exit 1
 	fi
 done
-$VERBOSE && print "$arg0: Server communication error." 1>&2
+$VERBOSE && echo "$arg0: Server communication error." 1>&2
 exit 255
 
 ##### End of main #####

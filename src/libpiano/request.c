@@ -26,6 +26,8 @@ THE SOFTWARE.
 #define _DARWIN_C_SOURCE /* strdup() on OS X */
 #endif
 
+#include <config.h>
+
 #ifdef HAVE_JSON_JSON_H
 #include <json/json.h>
 #elif defined HAVE_JSON_C_JSON_H
@@ -40,7 +42,6 @@ THE SOFTWARE.
 #include <stdio.h>
 #include <string.h>
 /* needed for urlencode */
-#include <config.h>
 #include <waitress.h>
 
 #include "piano.h"
@@ -153,7 +154,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 		case PIANO_REQUEST_ADD_FEEDBACK: {
 			/* low-level, don't use directly (see _RATE_SONG and _MOVE_SONG) */
 			PianoRequestDataAddFeedback_t *reqData = req->data;
-			
+
 			assert (reqData != NULL);
 			assert (reqData->trackToken != NULL);
 			assert (reqData->stationId != NULL);
