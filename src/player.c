@@ -151,7 +151,7 @@ static ao_device *BarPlayerOpenAudioOut (struct audioPlayer *player) {
 				  player->driver ? player->driver : "(default)");
 		return NULL;
 	}
-	
+
 	/* Audio format structure for libao */
 	ao_sample_format format;
 	memset (&format, 0, sizeof (format));
@@ -172,7 +172,7 @@ static ao_device *BarPlayerOpenAudioOut (struct audioPlayer *player) {
 	if (player->server) {
 		ao_append_option (&options, "server", player->server);
 	}
-		
+
 	ao_device *dev = ao_open_live (audioOutDriver, &format, options);
 	if (dev == NULL) {
 		BarUiMsg (player->settings, MSG_ERR,
@@ -282,7 +282,7 @@ static WaitressCbReturn_t BarPlayerAACCb (void *ptr, size_t size,
 								"(%i)\n", err);
 						return WAITRESS_CB_RET_ERR;
 					}
-					
+
 					if ((player->audioOutDevice = BarPlayerOpenAudioOut (player)) == NULL) {
 						/* we're not interested in the errno */
 						player->aoError = 1;
@@ -558,7 +558,7 @@ void *BarPlayerThread (void *data) {
 			goto cleanup;
 			break;
 	}
-	
+
 	player->mode = PLAYER_INITIALIZED;
 
 	/* This loop should work around song abortions by requesting the
@@ -634,7 +634,7 @@ char *ripit_normalize_strcat(char *fname, char *str)
 	char *optr = fname + strlen(fname);
 	char ch;
 
-	while (ch = *iptr++)
+	while ((ch = *iptr++))
 	{
 		switch(ch)
 		{

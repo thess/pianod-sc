@@ -106,7 +106,7 @@ static bool fb_queue_http (FB_CONNECTION *connection, char *message, size_t leng
     Add a message to the output queue, dynamically allocating the message.
     @connection Where to send the message.
     @message The message to send.
-    @length The length of message. 
+    @length The length of message.
     @return true on success, false on failure. */
 static bool fb_queue_http_alloc (FB_CONNECTION *connection, const char *message, size_t length) {
     char *m = malloc (length);
@@ -628,6 +628,7 @@ FB_EVENT *fb_read_websocket_input (FB_EVENT *event, FB_CONNECTION *connection) {
             return NULL;
     }
     assert (0);
+    return NULL;
 }
 
 

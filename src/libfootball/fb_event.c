@@ -155,7 +155,7 @@ ssize_t fb_queue_message (void *thing, FB_MESSAGE *message, bool broadcast) {
 	}
 	return -1;
 }
-	
+
 /** Add messages to output queues in various forms and styles.
     All forms take an opaque type and determine if it's a connection
     or service, so you can write code once and deal with both
@@ -179,7 +179,7 @@ ssize_t fb_vfprintf (void *thing, const char *format, va_list parameters) {
 	FB_MESSAGE *message = fb_create_message (format, parameters);
 	return fb_queue_message (thing, message, false);
 }
-	
+
 /** @see fb_fprintf */
 ssize_t fb_bfprintf (void *thing, const char *format, ...) {
 	va_list parameters;
@@ -396,7 +396,7 @@ FB_EVENT *fb_read_line_input (FB_EVENT *event, FB_CONNECTION *connection) {
 	char *line;
     char *buffer = NULL;
 	size_t buffilled = 0;
-	
+
 	/* If we got here, socket_data will be for a connection */
 	event->type = FB_EVENT_INPUT;
     if (connection->file) {
@@ -427,14 +427,14 @@ FB_EVENT *fb_read_line_input (FB_EVENT *event, FB_CONNECTION *connection) {
 		buffilled--;
 	}
 	buffer [buffilled] = '\0';
-	
+
 	/* Store the command and parse it into an argv array */
 	event->command = buffer;
 	event->argc = fb_create_argv(event->command, &event->argv, &event->argr);
 	if (event->argc < 0) {
 		event->argc = 0;
 	}
-	
+
 	return (event);
 }
 
@@ -449,7 +449,7 @@ FB_EVENT *fb_read_line_input (FB_EVENT *event, FB_CONNECTION *connection) {
 FB_EVENT *fb_read_input (FB_EVENT *ev, FB_CONNECTION *connection) {
     FB_SERVICE *service = connection->service;
     FB_EVENT *event;
-    int status;
+
     switch (connection->state) {
         case FB_SOCKET_STATE_TLS_HANDSHAKE:
 #ifdef WORKING_LIBGNUTLS

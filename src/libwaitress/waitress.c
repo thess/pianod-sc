@@ -61,6 +61,9 @@ struct _polarssl_ctx
 	ctr_drbg_context	rnd;
 };
 
+// Funky text declaration
+#define _T(s) ((unsigned char *)s)
+
 #else
 
 // Use gnutls by default (USE_POLARSSL not defined)
@@ -81,8 +84,10 @@ static WaitressReturn_t WaitressReceiveHeaders (WaitressHandle_t *, size_t *);
 // gnutls wants (void *) and polarssl want (unsigned char *)
 #if defined(USE_POLARSSL)
 #define BUFFER_CAST unsigned char
+#define RW_RETURN_TYPE int
 #else
 #define BUFFER_CAST void
+#define RW_RETURN_TYPE ssize_t
 #endif
 
 #define READ_RET(buf, count, size) \
@@ -264,7 +269,7 @@ static bool WaitressSplitUrl (const char *inurl, WaitressUrl_t *retUrl) {
 	assert (retUrl != NULL);
 
 	static const char *httpPrefix = "http://";
-	
+
 	/* is http url? */
 	if (strncmp (httpPrefix, inurl, strlen (httpPrefix)) == 0) {
 		enum {FIND_USER, FIND_PASS, FIND_HOST, FIND_PORT, FIND_PATH, DONE}
@@ -473,9 +478,9 @@ static int WaitressPollLoop (int fd, short events, int timeout) {
  *	@param write count bytes
  *	@return number of written bytes or -1 on error
  */
-static ssize_t WaitressPollWrite (void *data, const BUFFER_CAST *buf, size_t count) {
+static RW_RETURN_TYPE WaitressPollWrite (void *data, const BUFFER_CAST *buf, size_t count) {
 	int pollres = -1;
-	ssize_t retSize;
+	RW_RETURN_TYPE retSize;
 	WaitressHandle_t *waith = data;
 
 	assert (waith != NULL);
@@ -503,7 +508,7 @@ static WaitressReturn_t WaitressOrdinaryWrite (void *data, const char *buf,
 		const size_t size) {
 	WaitressHandle_t *waith = data;
 
-	WaitressPollWrite (waith, buf, size);
+	WaitressPollWrite (waith, (BUFFER_CAST *)buf, size);
 	return waith->request.readWriteRet;
 }
 
@@ -512,7 +517,7 @@ static WaitressReturn_t WaitressTlsWrite (void *data, const char *buf,
 	WaitressHandle_t *waith = data;
 #if defined(USE_POLARSSL)
 
-	if (ssl_write (&waith->request.sslCtx->ssl, buf, size) < 0) {
+	if (ssl_write (&waith->request.sslCtx->ssl, (BUFFER_CAST *)buf, size) < 0) {
 		return WAITRESS_RET_TLS_WRITE_ERR;
 	}
 #else
@@ -530,9 +535,9 @@ static WaitressReturn_t WaitressTlsWrite (void *data, const char *buf,
  *	@param buffer size
  *	@return number of read bytes or -1 on error
  */
-static ssize_t WaitressPollRead (void *data, BUFFER_CAST *buf, size_t count) {
+static RW_RETURN_TYPE WaitressPollRead (void *data, BUFFER_CAST *buf, size_t count) {
 	int pollres = -1;
-	ssize_t retSize;
+	RW_RETURN_TYPE retSize;
 	WaitressHandle_t *waith = data;
 
 	assert (waith != NULL);
@@ -559,7 +564,7 @@ static WaitressReturn_t WaitressOrdinaryRead (void *data, char *buf,
 		const size_t size, size_t *retSize) {
 	WaitressHandle_t *waith = data;
 
-	const ssize_t ret = WaitressPollRead (waith, buf, size);
+	const ssize_t ret = WaitressPollRead (waith, (BUFFER_CAST *)buf, size);
 	if (ret != -1) {
 		assert (ret >= 0);
 		*retSize = (size_t) ret;
@@ -576,7 +581,7 @@ static WaitressReturn_t WaitressTlsRead (void *data, char *buf,
 
 	*retSize = 0;
 	waith->request.readWriteRet = WAITRESS_RET_OK;
-	ret = ssl_read (&waith->request.sslCtx->ssl, buf, size);
+	ret = ssl_read (&waith->request.sslCtx->ssl, (BUFFER_CAST *)buf, size);
 
 	if (ret < 0) {
 		if (ret != POLARSSL_ERR_SSL_PEER_CLOSE_NOTIFY) {
@@ -1030,11 +1035,11 @@ static WaitressReturn_t WaitressSendRequest (WaitressHandle_t *waith) {
 			buf, WAITRESS_BUFFER_SIZE)) {
 		WRITE_RET (buf, strlen (buf));
 	}
-	
+
 	if (waith->extraHeaders != NULL) {
 		WRITE_RET (waith->extraHeaders, strlen (waith->extraHeaders));
 	}
-	
+
 	WRITE_RET ("\r\n", 2);
 
 	if (waith->method == WAITRESS_METHOD_POST && waith->postData != NULL) {
@@ -1202,7 +1207,7 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 		waith->request.sslCtx = calloc (1, sizeof(polarssl_ctx));
 
 		entropy_init (&waith->request.sslCtx->entrophy);
-		ctr_drbg_init (&waith->request.sslCtx->rnd, entropy_func, &waith->request.sslCtx->entrophy, "libwaitress", 11);
+		ctr_drbg_init (&waith->request.sslCtx->rnd, entropy_func, &waith->request.sslCtx->entrophy, _T("libwaitress"), 11);
 		ssl_init (&waith->request.sslCtx->ssl);
 
 		ssl_set_endpoint (&waith->request.sslCtx->ssl, SSL_IS_CLIENT);
@@ -1288,7 +1293,7 @@ const char *WaitressErrorToStr (WaitressReturn_t wRet) {
 		case WAITRESS_RET_NOTFOUND:
 			return "File not found.";
 			break;
-		
+
 		case WAITRESS_RET_FORBIDDEN:
 			return "Forbidden.";
 			break;
@@ -1312,7 +1317,7 @@ const char *WaitressErrorToStr (WaitressReturn_t wRet) {
 		case WAITRESS_RET_PARTIAL_FILE:
 			return "Partial file.";
 			break;
-	
+
 		case WAITRESS_RET_TIMEOUT:
 			return "Timeout.";
 			break;

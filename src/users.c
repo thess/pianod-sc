@@ -167,11 +167,13 @@ static const MANAGER_RULES *get_manager_rule_by_name (const char *name) {
 	return NULL;
 }
 
+#if 0
 static MANAGER_RULE get_manager_rule_id_by_name (const char *name) {
 	const MANAGER_RULES *mr = get_manager_rule_by_name (name);
 	assert (mr);
 	return mr->index;
 }
+#endif
 
 static const MANAGER_RULES *get_manager_rule_by_id (MANAGER_RULE mr) {
 	int i;
@@ -205,7 +207,7 @@ static FB_CONNECTION *find_online_user (FB_SERVICE *service, USER *user, FIND_KI
 		}
 		fb_destroy_iterator (it);
 	}
-	return found;	
+	return found;
 }
 
 
@@ -245,9 +247,9 @@ static void destroy_users (USER *list) {
 		list = next;
 	}
 }
-							 
-							 
-/* Get a user's record by name */		 
+
+
+/* Get a user's record by name */
 static USER *find_user (const char *username) {
 	assert (username);
 	USER *user;
@@ -368,7 +370,7 @@ void delete_user (USER *deluser) {
 /* Logoff users.  If user parameter is null, logs off visitors */
 void user_logoff (FB_SERVICE *service, USER *user, const char *message) {
 	assert (service);
-	
+
 	FB_ITERATOR *it = fb_new_iterator (service);
 	if (it) {
 		FB_EVENT *event;
@@ -412,7 +414,7 @@ bool change_password (USER *user, const char *old, const char *password) {
 	assert (user);
 	assert (old);
 	assert (password);
-	
+
 	USER *auth = authenticate_user (user->name, old);
 	if (auth) {
 		assert (auth == user);
@@ -861,7 +863,9 @@ bool users_persist (const char *filename) {
 			fclose (out);
 			if (success) {
 				unlink (oldfile);
-				link (filename, oldfile);
+				if (link (filename, oldfile)) {
+                    perror("link");
+                }
 				success = (rename (newfile, filename) >= 0);
 				if (success) {
 					dirty = false;

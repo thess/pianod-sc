@@ -275,7 +275,7 @@ static void send_statement_list (FB_EVENT *event, struct user_t *user, const cha
 		if (show) {
 			int i;
 			for (i = 0; i < allstatements [j].count; i++) {
-				char *command = allstatements [j].commandset[i].statement;
+				const char *command = allstatements [j].commandset[i].statement;
 				if (topic == NULL || strncasecmp (command, topic, topiclen) == 0) {
 					send_response_code (event, I_INFO, allstatements [j].commandset[i].statement);
 				}
@@ -340,7 +340,7 @@ static RESPONSE_CODE manipulate_quickmix (APPSTATE *app, FB_EVENT *event,
 	}
 	return response;
 }
-	
+
 
 /* Send the queue or history.  Allow negative indexes from either to refer to the other;
    0 refers to current track.  This makes implementing paging on clients easier because
@@ -397,7 +397,7 @@ static void control_playback (APPSTATE *app, FB_EVENT *event, COMMAND cmd) {
             assert (0);
             return;
 	}
-	
+
 	/* Apply that state to the player. */
 	if (app->player.mode >= PLAYER_STARTING) {
 		/* The player thread is active. */
@@ -452,10 +452,10 @@ static void rename_new_station (APPSTATE *app, FB_EVENT *event, char *to_name) {
 		if (pwn_station (app, event, station->id)) {
 			PianoRequestDataRenameStation_t reqData;
 			memset (&reqData, 0, sizeof (reqData));
-			
+
 			reqData.station = station;
 			reqData.newName = to_name;
-			
+
 			if (!piano_transaction (app, NULL, PIANO_REQUEST_RENAME_STATION, &reqData)) {
 				send_response_code (event, E_INCOMPLETE, "Station created but retains default name");
 			}
@@ -468,7 +468,7 @@ static void rename_new_station (APPSTATE *app, FB_EVENT *event, char *to_name) {
 static void create_station_from_song (APPSTATE *app, FB_EVENT *event,
 									  char *name, bool artist, const char *songid) {
 	PianoSong_t *song;
-	
+
 	if ((song = get_song_by_id_or_current (app, event, songid))) {
 		PianoRequestDataCreateStation_t reqData;
 		reqData.token = song->trackToken;
@@ -530,13 +530,13 @@ static void rename_station (APPSTATE *app, FB_EVENT *event,
 	if (!pwn_station (app, event, station->id)) {
 		return;
 	}
-	
+
 	PianoRequestDataRenameStation_t reqData;
 	memset (&reqData, 0, sizeof (reqData));
-	
+
 	reqData.station = station;
 	reqData.newName = to_name;
-	
+
 	if (piano_transaction (app, event, PIANO_REQUEST_RENAME_STATION, &reqData)) {
 		send_response (event->service, I_STATIONS_CHANGED);
 		announce_action (event, app, A_RENAMED_STATION, from_name);
@@ -679,14 +679,14 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 			authorize_and_execute (app, event);
 			return;
 	}
-			
+
 	/* Check for listen-only or better rank */
 	if (!have_rank (context->user, RANK_LISTENER)) {
 		reply (event, E_UNAUTHORIZED);
 		return;
 	}
 
-	
+
 	/* OWNER PRIVILEGE COMMANDS START HERE. */
 	/* Owners can change the Pandora stations, add/remove seeds, rate songs, etc. */
 	if (cmd > OWNER_RANGE_START && cmd < OWNER_RANGE_END) {
@@ -783,8 +783,8 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 		reply (event, E_NOT_IMPLEMENTED);
 		return;
 	}
-	
-	
+
+
 	/* LISTENER COMMANDS START HERE. */
 	/* Listeners can view status, but not change anything */
 	switch (cmd) {
@@ -796,7 +796,7 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 			fb_fprintf (event, "%03d Command incomplete after %s\n", E_BAD_COMMAND, errorpoint);
 			return;
 		case FB_PARSE_INVALID_KEYWORD:
-			fb_fprintf (event, "%03d Bad command %s\n", E_BAD_COMMAND, errorpoint);			
+			fb_fprintf (event, "%03d Bad command %s\n", E_BAD_COMMAND, errorpoint);
 			return;
 		case FB_PARSE_NUMERIC:
 			fb_fprintf (event, "%03d Numeric value expected: %s\n", E_BAD_COMMAND, errorpoint);
@@ -805,7 +805,7 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
             fb_fprintf (event, "%03d Numeric value out of range: %s\n", E_BAD_COMMAND, errorpoint);
             return;
 		case FB_PARSE_EXTRA_TERMS:
-			fb_fprintf (event, "%03d Run-on command at %s\n", E_BAD_COMMAND, errorpoint);			
+			fb_fprintf (event, "%03d Run-on command at %s\n", E_BAD_COMMAND, errorpoint);
 			return;
 		case NOP:
 			return;
@@ -888,7 +888,7 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 		case WAITFORNEXTSONG:
 			wait_for_event (event, EVENT_TRACK_STARTED);
 			return;
-			
+
 		/* Special privilege commands */
 		case USERSONLINE:
 			/* If sharing user actions, anyone can view users online (but not their privileges. */
@@ -967,7 +967,7 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 			} else {
 				reply (event, E_UNAUTHORIZED);
 			}
-			return;			
+			return;
 	}
 
 
@@ -976,7 +976,7 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 		reply (event, E_UNAUTHORIZED);
 		return;
 	}
-	
+
 	/* USER COMMANDS START HERE */
 	/* Users can control playback, but not modify stations */
 	switch (cmd) {
@@ -1075,13 +1075,13 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 			}
 			return;
 	}
-	
+
 	/* Check for administrator rank. */
 	if (!have_rank (context->user, RANK_ADMINISTRATOR)) {
 		reply (event, E_UNAUTHORIZED);
 		return;
 	}
-	
+
 	/* ADMINISTRATOR COMMANDS START HERE */
 	/* Administrators can modify stations, add/remove user accounts, etc. */
 	switch (cmd) {
@@ -1116,7 +1116,7 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 			fb_fprintf (app->service, "%03d %s: %s\n", I_AUDIOQUALITY, Response (I_AUDIOQUALITY), temp);
 			reply (event, S_OK);
 			return;
-			
+
 #if defined(ENABLE_SHOUT)
 		case SETSHOUTCAST:
 			if (strcasecmp(event->argv[2], "off") == 0) {
@@ -1188,7 +1188,7 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 		/* Libpiano settings */
 		case GETCONTROLPROXY:
 			report_setting (event, I_CONTROLPROXY, app->settings.control_proxy);
-			return;			
+			return;
 		case SETCONTROLPROXY:
 			;
 			if ((temp = strdup (event->argv [3]))) {
@@ -1311,7 +1311,7 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 		case SETTLSFINGERPRINT:
 			change_fingerprint (app, event, event->argv [3]);
 			return;
-			
+
 		/* Libao settings */
 		case GETOUTPUTDRIVER:
 			report_setting (event, I_OUTPUT_DRIVER, app->settings.output_driver);

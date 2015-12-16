@@ -11,6 +11,7 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
+				<Option parameters="-s 0 -i /opt/pianod/pianod-setup/pianod.startscript" />
 				<Compiler>
 					<Add option="-g" />
 					<Add directory="./" />
@@ -18,7 +19,6 @@
 					<Add directory="src/libezxml" />
 					<Add directory="src/libwaitress" />
 					<Add directory="src/libfootball" />
-					<Add directory="/usr/include" />
 				</Compiler>
 			</Target>
 			<Target title="Release">
@@ -36,10 +36,24 @@
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
+			<Add option="-std=c99" />
+			<Add option="-D_GNU_SOURCE" />
+			<Add option="-DEZXML_NOMMAP=1" />
 			<Add directory="./" />
 			<Add directory="src/libfootball" />
 			<Add directory="src/libwaitress" />
 		</Compiler>
+		<Linker>
+			<Add library="ao" />
+			<Add library="crypt" />
+			<Add library="shout" />
+			<Add library="mad" />
+			<Add library="pthread" />
+			<Add library="polarssl" />
+			<Add library="gcrypt" />
+			<Add library="json-c" />
+			<Add library="faad" />
+		</Linker>
 		<Unit filename="config.h" />
 		<Unit filename="src/command.c">
 			<Option compilerVar="CC" />
