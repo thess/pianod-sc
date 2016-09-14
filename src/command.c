@@ -643,9 +643,11 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 	struct user_t *newuser;
 	char *errorpoint;
 	char *temp;
-	DIR *dpath;
 	int i;
 	long l;
+#if defined(ENABLE_CAPTURE)
+	DIR *dpath;
+#endif
 	COMMAND cmd = fb_interpret (app->parser, event->argv, &errorpoint);
 
 	/* UNPRIVILEGED COMMANDS START HERE. */

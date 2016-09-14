@@ -9,17 +9,17 @@
  *
  Copyright (c) 2008-2011
  Lars-Dominik Braun <lars@6xq.net>
- 
+
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
  in the Software without restriction, including without limitation the rights
  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions:
- 
+
  The above copyright notice and this permission notice shall be included in
  all copies or substantial portions of the Software.
- 
+
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -65,6 +65,11 @@
 #include "query.h"
 #include "tuner.h"
 
+#if defined(USE_MBEDTLS)
+#include <mbedtls/ssl.h>
+#include <mbedtls/x509_crt.h>
+#endif
+
 #if defined(ENABLE_CAPTURE)
 extern void ripit_open_file(struct audioPlayer *player, PianoSong_t *song);
 #endif
@@ -94,7 +99,7 @@ static void get_play_list (APPSTATE *app) {
 	reqData.station = app->selected_station;
 	reqData.quality = app->settings.audioQuality;
 
-	
+
 	flog (LOG_GENERAL, "Retrieving new playlist");
 	if (!piano_transaction (app, NULL, PIANO_REQUEST_GET_PLAYLIST, &reqData)) {
 		app->selected_station = NULL;
@@ -120,11 +125,11 @@ static void playback_start (APPSTATE *app, pthread_t *playerThread) {
 	/* Get a song off the playlist */
 	assert (!app->current_song);
 	assert (app->playlist);
-	
+
 	app->current_song = app->playlist;
 	app->playlist = PianoListNextP (app->playlist);
 	app->current_song->head.next = NULL;
-	
+
 	/* Now play it */
 	if (app->current_song->audioUrl == NULL) {
 		send_response_code (app->service, E_FAILURE, "Invalid song url.");
@@ -135,17 +140,17 @@ static void playback_start (APPSTATE *app, pthread_t *playerThread) {
 		/* setup player */
 		memset (&app->player, 0, sizeof (app->player));
 		memset (&app->stall, 0, sizeof (app->stall));
-		
+
 		WaitressInit (&app->player.waith);
 		WaitressSetUrl (&app->player.waith, app->current_song->audioUrl);
-		
+
 		/* set up global proxy, player is NULLed on songfinish */
 		if (app->settings.proxy != NULL) {
 			if (!WaitressSetProxy (&app->player.waith, app->settings.proxy)) {
 				send_response (app->service, I_PROXY_CONFIG);
 			}
 		}
-		
+
 		app->player.gain = app->current_song->fileGain;
 		app->player.scale = BarPlayerCalcScale (app->player.gain + app->settings.volume);
 		app->player.audioFormat = app->current_song->audioFormat;
@@ -196,7 +201,7 @@ static void playback_start (APPSTATE *app, pthread_t *playerThread) {
  */
 static void playback_cleanup (APPSTATE *app, pthread_t *playerThread) {
 	assert (app->current_song);
-	
+
 	void *threadRet;
 	pthread_join (*playerThread, &threadRet);
 
@@ -229,7 +234,7 @@ static void playback_cleanup (APPSTATE *app, pthread_t *playerThread) {
 	if (app->stall.stalled) {
 		flog (LOG_WARNING, "Playback stalled for %d seconds", (int) (time (NULL) - app->stall.since));
 	}
-	
+
 	free (app->player.id);
 	free (app->player.server);
 	free (app->player.device);
@@ -237,11 +242,11 @@ static void playback_cleanup (APPSTATE *app, pthread_t *playerThread) {
 
 	memset (&app->player, 0, sizeof (app->player));
 	memset (&app->stall, 0, sizeof (app->stall));
-	
+
 	/* Move the completed song into the history. */
 	prepend_history (app, app->current_song);
 	app->current_song = NULL;
-	
+
 	event_occurred (app->service, EVENT_TRACK_ENDED, S_OK);
 }
 
@@ -342,11 +347,11 @@ static void change_piano_settings (APPSTATE *app) {
 		flog (LOG_ERROR, "change_piano_settings: PianoInit: %s", PianoErrorToStr (status));
 		flog (LOG_WARNING, "change_piano_settings: Unable to fully update library settings.");
 	}
-		
+
 	/* Waitress doesn't need to be fully reinitialized */
 	app->waith.url.host = app->settings.rpcHost;
 	app->waith.url.tlsPort = app->settings.rpcTlsPort;
-	app->waith.tlsFingerprint = (const char *) app->settings.tlsFingerprint;
+	app->waith.tlsFingerprint = (const char *)app->settings.tlsFingerprint;
 	/* Rewind the state */
 	if (app->settings.pending.username) {
 		destroy_pandora_credentials (&app->settings.pandora);
@@ -446,13 +451,13 @@ static void pianod_run_loop (APPSTATE *app) {
 	/* little hack, needed to signal: hey! we need a playlist, but don't
 	 * free anything (there is nothing to be freed yet) */
 	memset (&app->player, 0, sizeof (app->player));
-	
+
 	while (app->service) {
 		/* If song finished playing, clean up things */
 		if (app->player.mode == PLAYER_FINISHED_PLAYBACK) {
 			playback_cleanup (app, &playerThread);
 		}
-		
+
 		/* If requested, change the connection parameters between songs. */
 		if (app->player.mode == PLAYER_FREED && app->pianoparam_change_pending) {
 			app->pianoparam_change_pending = false;
@@ -542,17 +547,17 @@ static void pianod_run_loop (APPSTATE *app) {
 				app->playlist = NULL;
 			}
 		}
-		
+
 		run_service (app); /* See if sockets need attention */
-		
-		/* Check the signal handler's flag for shutdown requests. */ 
+
+		/* Check the signal handler's flag for shutdown requests. */
 		if (shutdown_signalled) {
 			shutdown_signalled = false;
 			app->quit_requested = true;
 			cancel_playback (app);
 		}
 	}
-	
+
 	if (app->player.mode != PLAYER_FREED) {
 		/* Cancel may prevent full clean-up, but we're shutting down anyway. */
 		/* Avoids hang if the player thread is stuck in network I/O */
@@ -569,7 +574,7 @@ static bool initialize_libraries (APPSTATE *app) {
 	gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
 	gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
 
-#if !defined(USE_POLARSSL)
+#if !defined(USE_MBEDTLS)
 	int crystatus = gnutls_global_init ();
 	if (crystatus == GNUTLS_E_SUCCESS) {
 #endif
@@ -579,13 +584,17 @@ static bool initialize_libraries (APPSTATE *app) {
 			WaitressInit (&app->waith);
 			app->waith.url.host = app->settings.rpcHost;
 			app->waith.url.tlsPort = app->settings.rpcTlsPort;
-			app->waith.tlsFingerprint = (const char *) app->settings.tlsFingerprint;
+			app->waith.tlsFingerprint = (const char *)app->settings.tlsFingerprint;
+#if defined(USE_MBEDTLS)
+			app->waith.use_CAcerts = app->settings.use_CAcerts;
+			app->waith.ca_certs = &app->settings.ca_certs;
+#endif
 			ao_initialize ();
 			return true;
 		} else {
 			flog (LOG_ERROR, "initialize_libraries: PianoInit: %s", PianoErrorToStr (status));
 		}
-#if !defined(USE_POLARSSL)
+#if !defined(USE_MBEDTLS)
 		gnutls_global_deinit ();
 	} else {
 		flog (LOG_ERROR, "initialize_libraries: gnutls_global_init: %s", gcry_strerror (crystatus));
@@ -621,7 +630,7 @@ static bool init_server (APPSTATE *app) {
 	}
 	flog (LOG_ERROR, "Unable to create service, giving up.\n");
 	return false;
-	
+
 }
 
 
@@ -640,6 +649,9 @@ static void usage () {
 			 "  -u userfile   : the location of the user/password file\n"
 			 "                  (default ~/.config/pianod/passwd)\n"
 			 "  -c clientdir  : a directory with web client files be served\n"
+#if defined(USE_MBEDTLS)
+			 "  -C CAPath     : path to CA Root certificates directory\n"
+#endif
 #if defined(ENABLE_CAPTURE)
 			 "  -m capturedir : a directory for stream capture\n"
 #endif
@@ -654,18 +666,20 @@ int main (int argc, char **argv) {
 	char *startscript = startscriptname;
 	char *nobody = "nobody";
 	char *nobody_groups = NULL;
-	
+
 	int serverOnly = 0;
-	int flag;
+	int flag, ret;
+#if defined(ENABLE_CAPTURE)
 	DIR *dpath;
+#endif
 
     setprogname(*argv);
 	memset (&app, 0, sizeof (app));
-	
+
 	settings_get_config_dir (PACKAGE, "startscript", startscriptname, sizeof (startscriptname));
 	settings_initialize (&app.settings);
 
-	while ((flag = getopt (argc, argv, "vn:g:p:P:s:c:i:SZ:z:u:m:")) > 0) {
+	while ((flag = getopt (argc, argv, "vn:g:p:P:s:c:C:i:SZ:z:u:m:")) > 0) {
         int argval;
 		switch (flag) {
 			case 'S':
@@ -696,6 +710,17 @@ int main (int argc, char **argv) {
             case 's':
                 app.settings.https_port = atoi (optarg);
                 break;
+#if defined(USE_MBEDTLS)
+            case 'C':
+                mbedtls_x509_crt_init(&app.settings.ca_certs);
+                ret = mbedtls_x509_crt_parse_path (&app.settings.ca_certs, optarg);
+                if (ret < 0) {
+                    fprintf (stderr, PACKAGE ": CA Path error(-0x%x) for '%s'\n", -ret, optarg);
+                    exit(-ret);
+                }
+                app.settings.use_CAcerts = true;
+                break;
+#endif
 			case 'i':
 				startscript = optarg;
 				break;
@@ -745,8 +770,8 @@ int main (int argc, char **argv) {
 	select_nobody_user (nobody, nobody_groups);
 	precreate_file (app.settings.user_file);
 	users_restore (app.settings.user_file);
-	
-	if (initialize_libraries (&app)) {		
+
+	if (initialize_libraries (&app)) {
 		/* If the server initialized, start up, otherwise give up. */
 		if (init_parser (&app)) {
 			if (init_server(&app)) {
@@ -768,7 +793,7 @@ int main (int argc, char **argv) {
 								fb_close_service (app.service);
 								app.quit_initiated = 1;
 							}
-						}	
+						}
 					}
 				} else {
 					signal (SIGHUP, receive_signal);
@@ -794,12 +819,16 @@ int main (int argc, char **argv) {
 		PianoDestroyPlaylist (app.song_history);
 		PianoDestroyPlaylist (app.playlist);
 		WaitressFree (&app.waith);
-#if !defined(USE_POLARSSL)
+#if defined(USE_MBEDTLS)
+        if (app.settings.use_CAcerts) {
+            mbedtls_x509_crt_free(&app.settings.ca_certs);
+        }
+#else
 		gnutls_global_deinit ();
 #endif
 		settings_destroy (&app.settings);
 	}
-	
-	
+
+
 	return 0;
 }

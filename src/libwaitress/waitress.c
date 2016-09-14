@@ -41,24 +41,23 @@ THE SOFTWARE.
 #include <assert.h>
 #include <stdint.h>
 
-
 #include "config.h"
 #include "waitress.h"
 
-#if defined(USE_POLARSSL)
+#if defined(USE_MBEDTLS)
 
-#include <polarssl/ssl.h>
-#include <polarssl/entropy.h>
-#include <polarssl/ctr_drbg.h>
-#include <polarssl/x509.h>
-#include <polarssl/sha1.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/entropy.h>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/x509.h>
+#include <mbedtls/sha1.h>
 
-struct _polarssl_ctx
+struct _mbedtls_ctx
 {
-	ssl_context		ssl;
-	ssl_session		session;
-	entropy_context		entrophy;
-	ctr_drbg_context	rnd;
+	mbedtls_ssl_context		ssl;
+	mbedtls_ssl_config		conf;
+	mbedtls_entropy_context		entropy;
+	mbedtls_ctr_drbg_context	ctr_drbg;
 };
 
 // Funky text declaration
@@ -66,7 +65,7 @@ struct _polarssl_ctx
 
 #else
 
-// Use gnutls by default (USE_POLARSSL not defined)
+// Use gnutls by default (USE_MBEDTLS not defined)
 #include <gnutls/x509.h>
 
 #endif
@@ -81,8 +80,8 @@ typedef struct {
 
 static WaitressReturn_t WaitressReceiveHeaders (WaitressHandle_t *, size_t *);
 
-// gnutls wants (void *) and polarssl want (unsigned char *)
-#if defined(USE_POLARSSL)
+// gnutls wants (void *) and mbedtls want (unsigned char *)
+#if defined(USE_MBEDTLS)
 #define BUFFER_CAST unsigned char
 #define RW_RETURN_TYPE int
 #else
@@ -508,16 +507,16 @@ static WaitressReturn_t WaitressOrdinaryWrite (void *data, const char *buf,
 		const size_t size) {
 	WaitressHandle_t *waith = data;
 
-	WaitressPollWrite (waith, (BUFFER_CAST *)buf, size);
+	WaitressPollWrite (waith, (const BUFFER_CAST *)buf, size);
 	return waith->request.readWriteRet;
 }
 
 static WaitressReturn_t WaitressTlsWrite (void *data, const char *buf,
 		const size_t size) {
 	WaitressHandle_t *waith = data;
-#if defined(USE_POLARSSL)
+#if defined(USE_MBEDTLS)
 
-	if (ssl_write (&waith->request.sslCtx->ssl, (BUFFER_CAST *)buf, size) < 0) {
+	if (mbedtls_ssl_write (&waith->request.sslCtx->ssl, (const BUFFER_CAST *)buf, size) < 0) {
 		return WAITRESS_RET_TLS_WRITE_ERR;
 	}
 #else
@@ -576,15 +575,15 @@ static WaitressReturn_t WaitressTlsRead (void *data, char *buf,
 		const size_t size, size_t *retSize) {
 	WaitressHandle_t *waith = data;
 
-#if defined(USE_POLARSSL)
+#if defined(USE_MBEDTLS)
 	int ret;
 
 	*retSize = 0;
 	waith->request.readWriteRet = WAITRESS_RET_OK;
-	ret = ssl_read (&waith->request.sslCtx->ssl, (BUFFER_CAST *)buf, size);
+	ret = mbedtls_ssl_read (&waith->request.sslCtx->ssl, (BUFFER_CAST *)buf, size);
 
 	if (ret < 0) {
-		if (ret != POLARSSL_ERR_SSL_PEER_CLOSE_NOTIFY) {
+		if (ret != MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
 			waith->request.readWriteRet = WAITRESS_RET_TLS_READ_ERR;
 		}
 
@@ -787,16 +786,16 @@ static int WaitressParseStatusline (const char * const line) {
  */
 static WaitressReturn_t WaitressTlsVerify (const WaitressHandle_t *waith) {
 
-#if defined(USE_POLARSSL)
+#if defined(USE_MBEDTLS)
 	unsigned char fingerprint[20];
 
-	const x509_crt* cert = ssl_get_peer_cert (&waith->request.sslCtx->ssl);
+	const mbedtls_x509_crt* cert = mbedtls_ssl_get_peer_cert (&waith->request.sslCtx->ssl);
 
 	if (NULL == cert) {
 		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
-	sha1 (cert->raw.p, cert->raw.len, fingerprint);
+	mbedtls_sha1 (cert->raw.p, cert->raw.len, fingerprint);
 
 	if (memcmp (fingerprint, waith->tlsFingerprint, sizeof (fingerprint)) != 0) {
 		return WAITRESS_RET_TLS_FINGERPRINT_MISMATCH;
@@ -848,6 +847,7 @@ static WaitressReturn_t WaitressTlsVerify (const WaitressHandle_t *waith) {
 static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 	WaitressReturn_t ret;
 	struct addrinfo hints, *gares;
+	int hsret;
 
 	memset (&hints, 0, sizeof hints);
 
@@ -956,9 +956,19 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 			}
 		}
 
-#if defined(USE_POLARSSL)
-		ssl_set_hostname (&waith->request.sslCtx->ssl, waith->url.host);
-		if (ssl_handshake (&waith->request.sslCtx->ssl) != 0) {
+#if defined(USE_MBEDTLS)
+        if (waith->use_CAcerts) {
+            mbedtls_ssl_conf_ca_chain(&waith->request.sslCtx->conf, waith->ca_certs, NULL);
+            mbedtls_ssl_conf_authmode (&waith->request.sslCtx->conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+        } else {
+            mbedtls_ssl_conf_authmode (&waith->request.sslCtx->conf, MBEDTLS_SSL_VERIFY_NONE);
+        }
+		mbedtls_ssl_set_hostname (&waith->request.sslCtx->ssl, waith->url.host);
+		mbedtls_ssl_setup (&waith->request.sslCtx->ssl, &waith->request.sslCtx->conf);
+
+		hsret = mbedtls_ssl_handshake (&waith->request.sslCtx->ssl);
+		if (hsret != 0) {
+            fprintf(stderr, "DEBUG: SSL Handshake returned: -0x%x\n", -hsret);
 			return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 		}
 #else
@@ -971,9 +981,11 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 		}
 #endif
 
-		if ((wRet = WaitressTlsVerify (waith)) != WAITRESS_RET_OK) {
-			return wRet;
-		}
+        if (!waith->use_CAcerts) {
+            if ((wRet = WaitressTlsVerify (waith)) != WAITRESS_RET_OK) {
+                return wRet;
+            }
+        }
 
 		/* now we can talk encrypted */
 		waith->request.read = WaitressTlsRead;
@@ -1203,20 +1215,24 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 	waith->request.contentLengthKnown = false;
 
 	if (waith->url.tls) {
-#if defined(USE_POLARSSL)
-		waith->request.sslCtx = calloc (1, sizeof(polarssl_ctx));
+#if defined(USE_MBEDTLS)
+		waith->request.sslCtx = calloc (1, sizeof(mbedtls_ctx));
 
-		entropy_init (&waith->request.sslCtx->entrophy);
-		ctr_drbg_init (&waith->request.sslCtx->rnd, entropy_func, &waith->request.sslCtx->entrophy, _T("libwaitress"), 11);
-		ssl_init (&waith->request.sslCtx->ssl);
+		mbedtls_entropy_init (&waith->request.sslCtx->entropy);
+		mbedtls_ctr_drbg_init (&waith->request.sslCtx->ctr_drbg);
+		mbedtls_ctr_drbg_seed (&waith->request.sslCtx->ctr_drbg, mbedtls_entropy_func, &waith->request.sslCtx->entropy, _T("libwaitress"), 11);
 
-		ssl_set_endpoint (&waith->request.sslCtx->ssl, SSL_IS_CLIENT);
-		ssl_set_authmode (&waith->request.sslCtx->ssl, SSL_VERIFY_NONE);
-		ssl_set_rng (&waith->request.sslCtx->ssl, ctr_drbg_random, &waith->request.sslCtx->rnd);
-		ssl_set_session (&waith->request.sslCtx->ssl, &waith->request.sslCtx->session);
-		ssl_set_bio (&waith->request.sslCtx->ssl,
-			     WaitressPollRead, waith,
-			     WaitressPollWrite, waith);
+		mbedtls_ssl_init (&waith->request.sslCtx->ssl);
+		mbedtls_ssl_config_init (&waith->request.sslCtx->conf);
+
+		mbedtls_ssl_config_defaults (&waith->request.sslCtx->conf,
+                                    MBEDTLS_SSL_IS_CLIENT,
+                                    MBEDTLS_SSL_TRANSPORT_STREAM,
+                                    MBEDTLS_SSL_PRESET_DEFAULT );
+
+		mbedtls_ssl_conf_rng (&waith->request.sslCtx->conf, mbedtls_ctr_drbg_random, &waith->request.sslCtx->ctr_drbg);
+
+		mbedtls_ssl_set_bio (&waith->request.sslCtx->ssl, waith, WaitressPollWrite, WaitressPollRead, NULL);
 #else
 		gnutls_init (&waith->request.tlsSession, GNUTLS_CLIENT);
 		gnutls_set_default_priority (waith->request.tlsSession);
@@ -1247,7 +1263,7 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 		if ((wRet = WaitressSendRequest (waith)) == WAITRESS_RET_OK) {
 			wRet = WaitressReceiveResponse (waith);
 		}
-#if !defined(USE_POLARSSL)
+#if !defined(USE_MBEDTLS)
 		if (waith->url.tls) {
 			gnutls_bye (waith->request.tlsSession, GNUTLS_SHUT_RDWR);
 		}
@@ -1256,8 +1272,11 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 
 	/* cleanup */
 	if (waith->url.tls) {
-#if defined(USE_POLARSSL)
-		ssl_free (&waith->request.sslCtx->ssl);
+#if defined(USE_MBEDTLS)
+		mbedtls_ssl_free (&waith->request.sslCtx->ssl);
+		mbedtls_ssl_config_free(&waith->request.sslCtx->conf);
+		mbedtls_ctr_drbg_free(&waith->request.sslCtx->ctr_drbg);
+		mbedtls_entropy_free(&waith->request.sslCtx->entropy);
 		free (waith->request.sslCtx);
 #else
 		gnutls_deinit (waith->request.tlsSession);

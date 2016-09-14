@@ -57,6 +57,10 @@ typedef struct {
 	int capture_pathlen;
 #endif
 	uint8_t tlsFingerprint[TLS_FINGERPRINT_SIZE];
+#if defined(USE_MBEDTLS)
+    bool use_CAcerts;
+    mbedtls_x509_crt ca_certs;
+#endif
 	PianoAudioQuality_t audioQuality;
 	/* pianod */
 	unsigned int history_length;

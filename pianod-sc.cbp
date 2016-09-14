@@ -11,7 +11,7 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="-s 0 -i /opt/pianod/pianod-setup/pianod.startscript" />
+				<Option parameters="-s 0 -C /etc/ssl/certs -i /opt/pianod/pianod-setup/pianod.startscript" />
 				<Compiler>
 					<Add option="-g" />
 					<Add directory="./" />
@@ -37,6 +37,7 @@
 		<Compiler>
 			<Add option="-Wall" />
 			<Add option="-std=c99" />
+			<Add option="-DUSE_MBEDTLS=1" />
 			<Add option="-D_GNU_SOURCE" />
 			<Add option="-DEZXML_NOMMAP=1" />
 			<Add directory="./" />
@@ -49,10 +50,12 @@
 			<Add library="shout" />
 			<Add library="mad" />
 			<Add library="pthread" />
-			<Add library="polarssl" />
 			<Add library="gcrypt" />
 			<Add library="json-c" />
 			<Add library="faad" />
+			<Add library="mbedtls" />
+			<Add library="mbedcrypto" />
+			<Add library="mbedx509" />
 		</Linker>
 		<Unit filename="config.h" />
 		<Unit filename="src/command.c">

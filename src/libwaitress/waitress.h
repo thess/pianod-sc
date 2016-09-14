@@ -28,8 +28,9 @@ THE SOFTWARE.
 #include <unistd.h>
 #include <stdbool.h>
 
-#if defined(USE_POLARSSL)
-typedef struct _polarssl_ctx polarssl_ctx;
+#if defined(USE_MBEDTLS)
+#include <mbedtls/x509_crt.h>
+typedef struct _mbedtls_ctx mbedtls_ctx;
 #else
 #include <gnutls/gnutls.h>
 #endif
@@ -107,8 +108,11 @@ typedef struct {
 	WaitressUrl_t url;
 	WaitressUrl_t proxy;
 
-#if !defined(USE_POLARSSL)
+#if !defined(USE_MBEDTLS)
 	gnutls_certificate_credentials_t tlsCred;
+#else
+    bool use_CAcerts;
+    mbedtls_x509_crt *ca_certs;
 #endif
 	/* per-request data */
 	struct {
@@ -127,8 +131,8 @@ typedef struct {
 		WaitressReturn_t (*read) (void *, char *, const size_t, size_t *);
 		WaitressReturn_t (*write) (void *, const char *, const size_t);
 
-#if defined(USE_POLARSSL)
-		polarssl_ctx* sslCtx;
+#if defined(USE_MBEDTLS)
+		mbedtls_ctx* sslCtx;
 #else
 		gnutls_session_t tlsSession;
 #endif

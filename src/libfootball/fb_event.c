@@ -396,7 +396,6 @@ FB_EVENT *fb_read_line_input (FB_EVENT *event, FB_CONNECTION *connection) {
 	char *line;
     char *buffer = NULL;
 	size_t buffilled = 0;
-
 	/* If we got here, socket_data will be for a connection */
 	event->type = FB_EVENT_INPUT;
     if (connection->file) {
@@ -449,6 +448,9 @@ FB_EVENT *fb_read_line_input (FB_EVENT *event, FB_CONNECTION *connection) {
 FB_EVENT *fb_read_input (FB_EVENT *ev, FB_CONNECTION *connection) {
     FB_SERVICE *service = connection->service;
     FB_EVENT *event;
+#ifdef WORKING_LIBGNUTLS
+    int status;
+#endif
 
     switch (connection->state) {
         case FB_SOCKET_STATE_TLS_HANDSHAKE:

@@ -45,17 +45,21 @@ PKG_CHECK_MODULES([json], [json-c],,
 AC_CHECK_LIB([gcrypt], [gcry_cipher_open],,
 	[AC_MSG_ERROR([Cannot find required library: libgcrypt],1)])
 # Check for SSL option
-AC_ARG_WITH(polarssl, [  --with-polarssl	Build waitress with PolarSSL (default GNUTLS)], [
-  AC_MSG_RESULT(>>Using PolarSSL)
-  HAS_POLARSSL=1
-  AC_DEFINE([USE_POLARSSL], 1, [Build for PolarSSL])
-  PKG_CHECK_MODULES([polarssl], [polarssl],,
-		[AC_MSG_WARN([No pkg-config for libpolarssl])])
-  AC_CHECK_LIB([polarssl], [ssl_set_session],,
-		[AC_MSG_ERROR([Cannot find required library: libpolarssl (aka polarssl)],1)])] )
-AM_CONDITIONAL([USE_POLARSSL],[test "x$HAS_POLARSSL" = "x1"])
+AC_ARG_WITH(mbedtls, [  --with-mbedtls	Build waitress with mbed TLS (default GNUTLS)], [
+  AC_MSG_RESULT(>>Using mbedTLS)
+  HAS_MBEDTLS=1
+  AC_DEFINE([USE_MBEDTLS], 1, [Build for mbed TLS])
+  PKG_CHECK_MODULES([mbedtls], [mbedtls],,
+		[AC_MSG_WARN([No pkg-config for libmbedtls])])
+  AC_CHECK_LIB([mbedtls], [mbedtls_ssl_set_session],,
+		[AC_MSG_ERROR([Cannot find required library: libmbedtls],1)])
+  AC_CHECK_LIB([mbedcrypto], [mbedtls_entropy_func],,
+		[AC_MSG_ERROR([Cannot find required library: libmbedcrypto],1)])
+  AC_CHECK_LIB([mbedx509], [mbedtls_x509_crt_parse_path],,
+		[AC_MSG_ERROR([Cannot find required library: libmbedx509],1)]) ])
+AM_CONDITIONAL([USE_MBEDTLS],[test "x$HAS_MBEDTLS" = "x1"])
 
-if test "x$HAS_POLARSSL" != x1 ; then
+if test "x$HAS_MBEDTLS" != x1 ; then
   PKG_CHECK_MODULES([gnutls], [gnutls],,
 	[AC_MSG_WARN([No pkg-config for libgnutls])])
   AC_CHECK_LIB([gnutls], [gnutls_record_recv],,
