@@ -11,7 +11,7 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="-s 0 -C /etc/ssl/certs -i /opt/pianod/pianod-setup/pianod.startscript" />
+				<Option parameters="-s 0 -C /opt/pianod/pianod-setup/Verisign_C3G5CA.pem  -i /opt/pianod/pianod-setup/pianod.startscript" />
 				<Compiler>
 					<Add option="-g" />
 					<Add directory="./" />

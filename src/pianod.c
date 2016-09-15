@@ -49,7 +49,7 @@
 #include <pthread.h>
 #include <getopt.h>
 #include <limits.h>
-#include <dirent.h>
+#include <sys/stat.h>
 
 #include <fb_public.h>
 #include <piano.h>
@@ -668,9 +668,10 @@ int main (int argc, char **argv) {
 	char *nobody_groups = NULL;
 
 	int serverOnly = 0;
-	int flag, ret;
-#if defined(ENABLE_CAPTURE)
-	DIR *dpath;
+	int flag;
+#if defined(ENABLE_CAPTURE) || defined(USE_MBEDTLS)
+    int ret;
+    struct stat sbuf;
 #endif
 
     setprogname(*argv);
@@ -713,9 +714,19 @@ int main (int argc, char **argv) {
 #if defined(USE_MBEDTLS)
             case 'C':
                 mbedtls_x509_crt_init(&app.settings.ca_certs);
-                ret = mbedtls_x509_crt_parse_path (&app.settings.ca_certs, optarg);
+                // Validate path/file exist
+                if (stat(optarg, &sbuf) != 0) {
+                    fprintf (stderr, PACKAGE ": CA file/path not found(%d): %s\n", errno, strerror(errno));
+                }
+                // Parse single file or whole directory
+                if (S_ISDIR(sbuf.st_mode)) {
+                    ret = mbedtls_x509_crt_parse_path (&app.settings.ca_certs, optarg);
+                } else {
+                    ret = mbedtls_x509_crt_parse_file (&app.settings.ca_certs, optarg);
+                }
+                // Valid certs
                 if (ret < 0) {
-                    fprintf (stderr, PACKAGE ": CA Path error(-0x%x) for '%s'\n", -ret, optarg);
+                    fprintf (stderr, PACKAGE ": CA parse error(-0x%x) for '%s'\n", -ret, optarg);
                     exit(-ret);
                 }
                 app.settings.use_CAcerts = true;
@@ -747,20 +758,22 @@ int main (int argc, char **argv) {
 				usage ();
 				exit (1);
 #if defined(ENABLE_CAPTURE)
-	    case 'm':
-		/* Validate path exists */
-		dpath = opendir (optarg);
-		if (dpath) {
-			closedir (dpath);
-			/* Directory exists - save it*/
-			app.settings.capture_path = strdup (optarg);
-			/* Validates malloc failure by ignoring path */
-			app.settings.capture_pathlen = strlen (app.settings.capture_path);
-		} else {
-			/* Error - Maybe directory does not exist. */
-			flog (LOG_ERROR, "Capture path error(%d): %s\n", errno, strerror(errno));
-		}
-		break;
+            case 'm':
+                /* Validate path exists */
+                if (stat(optarg, &sbuf) == 0) {
+                    if (S_ISDIR(sbuf.st_mode)) {
+                        /* Directory exists - save it*/
+                        app.settings.capture_path = strdup (optarg);
+                        /* Prevents malloc failure by ignoring path */
+                        app.settings.capture_pathlen = strlen (app.settings.capture_path);
+                    }
+                }
+
+                if (app.settings.capture_pathlen) {
+                    /* Error - Maybe directory does not exist. */
+                    flog (LOG_ERROR, "Capture path error(%d): %s\n", errno, strerror(errno));
+                }
+                break;
 #endif
 	    }
 	}

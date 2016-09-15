@@ -28,7 +28,7 @@
 #include <getopt.h>
 #include <limits.h>
 #include <ctype.h>
-#include <dirent.h>
+#include <sys/stat.h>
 
 #include <ao/ao.h>
 #include <fb_public.h>
@@ -646,7 +646,7 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 	int i;
 	long l;
 #if defined(ENABLE_CAPTURE)
-	DIR *dpath;
+	struct stat sbuf;
 #endif
 	COMMAND cmd = fb_interpret (app->parser, event->argv, &errorpoint);
 
@@ -1167,10 +1167,8 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 
 			if (event->argv[3] && (temp = strdup(event->argv[3]))) {
 				/* Validate path exists */
-				dpath = opendir(temp);
-				if (dpath) {
+                if ((stat(temp, &sbuf) == 0) && S_ISDIR(sbuf.st_mode)) {
 					/* Directory exists. */
-					closedir(dpath);
 					if (app->settings.capture_path) {
 						free (app->settings.capture_path);
 					}
