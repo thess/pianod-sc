@@ -1074,7 +1074,6 @@ static WaitressReturn_t WaitressReceiveHeaders (WaitressHandle_t *waith,
 	WaitressReturn_t wRet = WAITRESS_RET_OK;
 
 	/* receive answer */
-	nextLine = buf;
 	while (hdrParseMode != HDRM_FINISHED) {
 		READ_RET (buf+bufFilled, WAITRESS_BUFFER_SIZE-1 - bufFilled, &recvSize);
 		if (recvSize == 0) {
