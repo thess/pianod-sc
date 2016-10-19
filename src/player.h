@@ -87,6 +87,7 @@ struct audioPlayer {
 #if defined(ENABLE_CAPTURE)
 	/* Ripit */
 	FILE *ripit_file;
+	char *ripit_fname;
 #endif
 #if defined(ENABLE_SHOUT)
 	/* Shoutcast */
@@ -119,7 +120,7 @@ struct audioPlayer {
 	pthread_mutex_t pauseMutex;
 	pthread_cond_t pauseCond;
 	WaitressHandle_t waith;
-	
+
 	/* libao/Audio output destination control */
 	char *driver;
 	char *device;

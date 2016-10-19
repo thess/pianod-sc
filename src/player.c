@@ -673,7 +673,8 @@ void ripit_open_file(struct audioPlayer *player, PianoSong_t *song)
 	int namelen;
 	char *file_name;
 
-	if (player->ripit_file)
+    // Safety cleanup
+    if (player->ripit_file)
 		ripit_close_file(player);
 
 	namelen = player->settings->capture_pathlen;
@@ -699,17 +700,30 @@ void ripit_open_file(struct audioPlayer *player, PianoSong_t *song)
 		flog(LOG_ERROR, "Capture file open failed(%d): %s", errno, strerror(errno));
 	}
 
-	free(file_name);
+    player->ripit_fname = file_name;
 
 	return;
 }
 
 void ripit_close_file(struct audioPlayer *player)
 {
+    struct stat sbuf;
+
 	if (player->ripit_file) {
+        // Check for 0-length files and remove them
+        stat(player->ripit_fname, &sbuf);
+        if (sbuf.st_size == 0) {
+            unlink(player->ripit_fname);
+        }
+        // close file & release name
 		fclose(player->ripit_file);
+		free(player->ripit_fname);
 	}
+
 	player->ripit_file = NULL;
+    player->ripit_fname = NULL;
+
+    return;
 }
 
 void ripit_write_stream(struct audioPlayer *player)
