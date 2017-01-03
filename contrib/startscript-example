@@ -10,7 +10,7 @@
 # set pandora device "android-generic"
 # set encryption password "6#26FRL$ZWD"
 # set decryption password "R=U!LH$O2B#"
-# set tls fingerprint 13CC51AC0C31CD96C55015C76914360F7AC41A00
+# set tls fingerprint FC2E6AF49FC63AEDAD1078DC22D1185B809E7534
 #
 #
 #
@@ -22,7 +22,7 @@
 # set pandora device "D01"
 # set encryption password "2%3WCL*JU$MP]4"
 # set decryption password "U#IO$RZPAB%VX2"
-# set tls fingerprint 7F2BFD338D08D6F952D215C0FC8C3C4C1DC1772F
+# set tls fingerprint FC2E6AF49FC63AEDAD1078DC22D1185B809E7534
 # set audio quality high
 #
 #

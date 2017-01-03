@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 AC_INIT([pianod],
-	174.04-sc,
+	174.05-sc,
 	[pianod@lists.deviousfish.com],
 	,[http://deviousfish.com/pianod])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
@@ -45,7 +45,7 @@ PKG_CHECK_MODULES([json], [json-c],,
 AC_CHECK_LIB([gcrypt], [gcry_cipher_open],,
 	[AC_MSG_ERROR([Cannot find required library: libgcrypt],1)])
 # Check for SSL option
-AC_ARG_WITH(mbedtls, [  --with-mbedtls	Build waitress with mbed TLS (default GNUTLS)], [
+AC_ARG_WITH(mbedtls, [  --with-mbedtls          build waitress with mbed TLS (default GNUTLS)], [
   AC_MSG_RESULT(>>Using mbedTLS)
   HAS_MBEDTLS=1
   AC_DEFINE([USE_MBEDTLS], 1, [Build for mbed TLS])

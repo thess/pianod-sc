@@ -6,7 +6,7 @@ Dependencies
 - pthreads
 - libao
 - gcrypt
-- gnutls
+- gnutls or mbed TLS
 - json-c
 - libfaad2 and/or libmad
 - UTF-8 console/locale
