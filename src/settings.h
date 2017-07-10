@@ -51,22 +51,25 @@ typedef struct {
 	CREDENTIALS pending;
 	char *control_proxy; /* non-american listeners need this */
 	char *proxy;
-    char *client_location; /* Directory for HTML5 client files */
+	char *client_location; /* Directory for HTML5 client files */
 #if defined(ENABLE_CAPTURE)
 	char  *capture_path;	/* Directory for stream capture */
 	int capture_pathlen;
 #endif
+#if defined(ENABLE_SHOUT)
+	char *shoutcast_server;
+#endif
 	uint8_t tlsFingerprint[TLS_FINGERPRINT_SIZE];
 #if defined(USE_MBEDTLS)
-    bool use_CAcerts;
-    mbedtls_x509_crt ca_certs;
+	bool use_CAcerts;
+	mbedtls_x509_crt ca_certs;
 #endif
 	PianoAudioQuality_t audioQuality;
 	/* pianod */
 	unsigned int history_length;
 	in_port_t port;
-    in_port_t http_port;
-    in_port_t https_port;
+	in_port_t http_port;
+	in_port_t https_port;
 	bool broadcast_user_actions;
 	int pause_timeout;
 	int playlist_expiration;

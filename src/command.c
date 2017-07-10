@@ -140,7 +140,7 @@ static FB_PARSE_DEFINITION adminstatements[] = {
 	{ SETCAPTUREPATH,	"set capture <path|off> [{path}]" },
 #endif
 #if defined(ENABLE_SHOUT)
-	{ SETSHOUTCAST,		"set shoutcast <on|off>" },
+	{ SETSHOUTCAST,		"set shoutcast <server|on|off> [{connect-string}]" },
 #endif
 	{ SETLOGGINGFLAGS,	"set [football] logging flags {#logging-flags:0x0-0xffff}" },
                                                                         /* Pianod or football debug logging flags */
@@ -1129,13 +1129,25 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 				}
 			} else if (strcasecmp(event->argv[2], "on") == 0) {
 				if (app->shoutcast == NULL) {
-					app->shoutcast = sc_init_service();
+					app->shoutcast = sc_init_service(app->settings.shoutcast_server);
 					if (app->shoutcast) {
 						send_data (app->service, I_SHOUTCAST, "enabled");
 					} else {
 						reply (event, E_FAILURE);
 						return;
 					}
+				}
+			} else if (strcasecmp(event->argv[2], "server") == 0) {
+				if (event->argv[3] && (temp = strdup(event->argv[3]))) {
+					if (app->settings.shoutcast_server) {
+						free (app->settings.shoutcast_server);
+						app->settings.shoutcast_server = NULL;
+					}
+					app->settings.shoutcast_server = temp;
+					send_data (app->service, I_SHOUTCAST, app->settings.shoutcast_server);
+				} else {
+					reply (event, E_FAILURE);
+					return;
 				}
 			} else {
 				reply (event, E_INVALID);
@@ -1167,7 +1179,7 @@ void execute_command (APPSTATE *app, FB_EVENT *event) {
 
 			if (event->argv[3] && (temp = strdup(event->argv[3]))) {
 				/* Validate path exists */
-                if ((stat(temp, &sbuf) == 0) && S_ISDIR(sbuf.st_mode)) {
+				if ((stat(temp, &sbuf) == 0) && S_ISDIR(sbuf.st_mode)) {
 					/* Directory exists. */
 					if (app->settings.capture_path) {
 						free (app->settings.capture_path);

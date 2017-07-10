@@ -39,6 +39,9 @@ struct _sc_service {
 	// Icecast data
 	char	*host;
 	int	port;
+	char	*user;
+	char	*passwd;
+
 	char	*mount;
 	char	*bitrate;
 
@@ -65,7 +68,7 @@ struct _stream_data {
 
 typedef struct _stream_data stream_data;
 
-extern sc_service *sc_init_service(void);
+extern sc_service *sc_init_service(char *server_info);
 extern int sc_start_service(sc_service *svc);
 extern void sc_close_service(sc_service *svc);
 

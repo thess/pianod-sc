@@ -59,7 +59,7 @@ static int icy_bufcnt;
 // MP3 data for 0.1s of pink noise -80db (calm silence)
 #include "pink_silence.h"
 
-sc_service *sc_init_service()
+sc_service *sc_init_service(char *server_info)
 {
 	sc_service *svc = &g_service;
 
@@ -74,9 +74,16 @@ sc_service *sc_init_service()
 
 	// Startup paused
 	svc->paused = 1;
-	// Icecast server location
-	svc->host = "localhost";
-	svc->port = 6144;
+	if (server_info) {
+		// Parse server connect string
+	} else {
+		// Icecast server location (LEDE/OpenWrt defaults)
+		svc->host = "localhost";
+		svc->port = 8000;
+		svc->user = "source";
+		svc->passwd = "hackme";
+	}
+
 	svc->mount = "/pandora";
 	svc->bitrate = "192";
 
@@ -137,7 +144,7 @@ int sc_stream_setup(sc_service *svc)
 		flog(LOG_ERROR, "%s: shout_set_port: %s", ourname, shout_get_error(shout));
 		return -1;
 	}
-	if (shout_set_password(shout, "icymadness") != SHOUTERR_SUCCESS) {
+	if (shout_set_password(shout, svc->passwd) != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_password(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
@@ -145,7 +152,7 @@ int sc_stream_setup(sc_service *svc)
 		flog(LOG_ERROR, "%s: shout_set_mount(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
-	if (shout_set_user(shout, "source") != SHOUTERR_SUCCESS) {
+	if (shout_set_user(shout, svc->user) != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_user(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
