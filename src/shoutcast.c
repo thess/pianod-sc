@@ -61,6 +61,7 @@ static int icy_bufcnt;
 
 sc_service *sc_init_service(char *server_info)
 {
+    char *tptr;
 	sc_service *svc = &g_service;
 
 	memset(&g_service, 0, sizeof(struct _sc_service));
@@ -75,13 +76,29 @@ sc_service *sc_init_service(char *server_info)
 	// Startup paused
 	svc->paused = 1;
 	if (server_info) {
-		// Parse server connect string
-	} else {
-		// Icecast server location (LEDE/OpenWrt defaults)
-		svc->host = "localhost";
-		svc->port = 8000;
-		svc->user = "source";
-		svc->passwd = "hackme";
+		svc->si = strdup(server_info);
+		// Parse server connect string (user:passwd@host:port)
+		// Break into user-part and host-part
+		tptr = strpbrk(svc->si, "@");
+		if (tptr) {
+			// Have host part - check port spec
+			*tptr++ = '\0';
+			svc->host = tptr;
+			tptr = strpbrk(tptr, ":");
+			if (tptr) {
+                *tptr++ = '\0';
+                svc->port = tptr;
+			}
+		}
+		// Maybe have user/pass
+		if (*svc->si) {
+			svc->user = svc->si;
+			tptr = strpbrk(svc->si, ":");
+			if (tptr) {
+                *tptr++ = '\0';
+                svc->passwd = tptr;
+			}
+		}
 	}
 
 	svc->mount = "/pandora";
@@ -111,6 +128,9 @@ void sc_close_service(sc_service *svc)
 	// Cleanup queue
 	thread_queue_cleanup(&svc->sc_queue, 0);
 
+	if (svc->si);
+		free(svc->si);
+
 	if (svc->shout)
 		shout_free(svc->shout);
 
@@ -132,7 +152,7 @@ int sc_stream_setup(sc_service *svc)
 {
 	shout_t *shout = svc->shout;
 
-	if (shout_set_host(shout, svc->host) != SHOUTERR_SUCCESS) {
+	if (shout_set_host(shout, (svc->host) ? svc->host : "localhost") != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_host(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
@@ -140,11 +160,15 @@ int sc_stream_setup(sc_service *svc)
 		flog(LOG_ERROR, "%s: shout_set_protocol(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
-	if (shout_set_port(shout, svc->port) != SHOUTERR_SUCCESS) {
+	if (shout_set_port(shout, (svc->port) ? atoi(svc->port) : 8000) != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_port: %s", ourname, shout_get_error(shout));
 		return -1;
 	}
-	if (shout_set_password(shout, svc->passwd) != SHOUTERR_SUCCESS) {
+	if (shout_set_user(shout, (svc->user) ? svc->user : "source") != SHOUTERR_SUCCESS) {
+		flog(LOG_ERROR, "%s: shout_set_user(): %s", ourname, shout_get_error(shout));
+		return -1;
+	}
+	if (shout_set_password(shout, (svc->passwd) ? svc->passwd : "hackme") != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_password(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
@@ -152,18 +176,8 @@ int sc_stream_setup(sc_service *svc)
 		flog(LOG_ERROR, "%s: shout_set_mount(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
-	if (shout_set_user(shout, svc->user) != SHOUTERR_SUCCESS) {
-		flog(LOG_ERROR, "%s: shout_set_user(): %s", ourname, shout_get_error(shout));
-		return -1;
-	}
-
 	if (shout_set_format(shout, SHOUT_FORMAT_MP3) != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_format(MP3): %s", ourname, shout_get_error(shout));
-		return -1;
-	}
-
-	if (shout_set_user(shout, "source") != SHOUTERR_SUCCESS) {
-		flog(LOG_ERROR, "%s: shout_set_user(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
 	if (shout_set_name(shout, "PandoraRadio") != SHOUTERR_SUCCESS) {

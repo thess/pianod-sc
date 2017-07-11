@@ -36,9 +36,11 @@ struct _sc_service {
 	int paused;		// Sends silence
 	int state;		// Thread active or idle
 
+	char	*si;		// Server info string (parsed)
+
 	// Icecast data
 	char	*host;
-	int	port;
+	char	*port;
 	char	*user;
 	char	*passwd;
 
