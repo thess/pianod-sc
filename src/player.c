@@ -430,15 +430,10 @@ static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size,
 		if (mad_frame_decode (&player->mp3Frame, &player->mp3Stream) != 0) {
 			if (player->mp3Stream.error != MAD_ERROR_BUFLEN) {
 				if (player->mp3Stream.error == MAD_ERROR_LOSTSYNC) {
+					// Possible ID3 tag?
 					// Attempt to re-sync stream (and continue)
-					if (mad_stream_sync(&player->mp3Stream) == 0) {
-						player->mp3Stream.error = MAD_ERROR_NONE;
-						continue;
-					}
-					// Stream sync error and exit player
-					BarUiMsg(player->settings, MSG_ERR,
-						 "mp3 stream re-sync failed\n");
-					return WAITRESS_CB_RET_ERR;
+					player->mp3Stream.error = MAD_ERROR_NONE;
+					continue;
 				}
 				BarUiMsg (player->settings, MSG_ERR,
 						"mp3 decoding error: %s\n",
