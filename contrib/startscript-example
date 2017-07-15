@@ -34,6 +34,10 @@
 #
 pandora user myemail@mydomain.com mypandorapassword
 #
+# [Optional] shoutcast startup (use your own app credentials)
+# set shoutcast server <app-user>:<app-passwd>@localhost:8000
+# set shoutcast on
+#
 # Start on this station
 #
 play mix
