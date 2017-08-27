@@ -48,6 +48,8 @@ void ripit_write_stream(struct audioPlayer *player);
  * a "nice" integer */
 #define RG_SCALE_FACTOR 100
 
+#define PANDORA_MP3_BITRATE 192000
+
 /*	wait until the pause flag is cleared
  *	@param player structure
  *	@return true if the player should quit
@@ -380,31 +382,18 @@ static WaitressCbReturn_t BarPlayerAACCb (void *ptr, size_t size,
 
 #endif /* ENABLE_FAAD */
 
-#ifdef ENABLE_MAD
-
-/*	convert mad's internal fixed point format to short int
- *	@param mad fixed
- *	@return short int
- */
-static inline signed short int BarPlayerMadToShort (const mad_fixed_t fixed) {
-	/* Clipping */
-	if (fixed >= MAD_F_ONE) {
-		return SHRT_MAX;
-	} else if (fixed <= -MAD_F_ONE) {
-		return -SHRT_MAX;
-	}
-
-	/* Conversion */
-	return (signed short int) (fixed >> (MAD_F_FRACBITS - 15));
-}
+#ifdef ENABLE_MPG123
 
 /*	mp3 playback callback
  */
-static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size,
-		void *stream) {
+static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size, void *stream) {
 	const char *data = ptr;
 	struct audioPlayer *player = stream;
 	size_t i;
+	off_t frame_offset;
+	int encoding, channels;\
+	long rate;
+	size_t frame_size;
 #if defined(ENABLE_SHOUT)
 	stream_data *sdata;
 #endif
@@ -414,74 +403,51 @@ static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size,
 		return WAITRESS_CB_RET_ERR;
 	}
 
-	/* some "prebuffering" */
-	if (player->mode < PLAYER_RECV_DATA &&
-			player->bufferFilled < BAR_PLAYER_BUFSIZE / 2) {
-		return WAITRESS_CB_RET_OK;
-	}
-
-	mad_stream_buffer (&player->mp3Stream, player->buffer,
-			player->bufferFilled);
-	player->mp3Stream.error = MAD_ERROR_NONE;
+	mpg123_feed(player->mh, player->buffer, player->bufferFilled);
 	do {
-		/* channels * max samples, found in mad.h */
-		signed short int *madPtr = player->madDecoded;
+		int err = mpg123_decode_frame(player->mh, &frame_offset, (unsigned char **)&player->mp3Audio, &frame_size);
+		switch (err) {
+		case MPG123_NEW_FORMAT:
+			mpg123_getformat(player->mh, &rate, &channels, &encoding);
+			player->samplerate = rate;
+			player->channels = (unsigned char)channels;
 
-		if (mad_frame_decode (&player->mp3Frame, &player->mp3Stream) != 0) {
-			if (player->mp3Stream.error != MAD_ERROR_BUFLEN) {
-				if (player->mp3Stream.error == MAD_ERROR_LOSTSYNC) {
-					// Possible ID3 tag?
-					// Attempt to re-sync stream (and continue)
-					player->mp3Stream.error = MAD_ERROR_NONE;
-					continue;
+			if (player->mode < PLAYER_AUDIO_INITIALIZED) {
+				if ((player->audioOutDevice = BarPlayerOpenAudioOut (player)) == NULL) {
+					player->aoError = 1;
+					BarUiMsg (player->settings, MSG_ERR, "Cannot open audio device\n");
+					return WAITRESS_CB_RET_ERR;
 				}
-				BarUiMsg (player->settings, MSG_ERR,
-						"mp3 decoding error: %s\n",
-						mad_stream_errorstr (&player->mp3Stream));
-				return WAITRESS_CB_RET_ERR;
-			} else {
-				/* rebuffering required => exit loop */
-				break;
+
+				/* calc song length from contentLength (assuming bitrate) */
+				player->songDuration = (unsigned long long int) player->waith.request.contentLength /
+						(PANDORA_MP3_BITRATE / BAR_PLAYER_MS_TO_S_FACTOR / 8LL);
+
+				/* must be > PLAYER_SAMPLESIZE_INITIALIZED, otherwise time won't
+				 * be visible to user (ugly, but mp3 decoding != aac decoding) */
+				player->mode = PLAYER_RECV_DATA;
 			}
-		}
-		mad_synth_frame (&player->mp3Synth, &player->mp3Frame);
-		for (i = 0; i < player->mp3Synth.pcm.length; i++) {
-			/* left channel */
-			*(madPtr++) = applyReplayGain (BarPlayerMadToShort (
-					player->mp3Synth.pcm.samples[0][i]), player->scale);
+			break;
 
-			/* right channel */
-			*(madPtr++) = applyReplayGain (BarPlayerMadToShort (
-					player->mp3Synth.pcm.samples[1][i]), player->scale);
-		}
-		if (player->mode < PLAYER_AUDIO_INITIALIZED) {
-			player->channels = player->mp3Synth.pcm.channels;
-			player->samplerate = player->mp3Synth.pcm.samplerate;
-			if ((player->audioOutDevice = BarPlayerOpenAudioOut (player)) == NULL) {
-				player->aoError = 1;
-				BarUiMsg (player->settings, MSG_ERR,
-						"Cannot open audio device\n");
-				return WAITRESS_CB_RET_ERR;
+		case MPG123_OK:
+			/* samples * length * channels */
+			for (i = 0; i < (frame_size / sizeof(short)); i++) {
+				player->mp3Audio[i] = applyReplayGain(player->mp3Audio[i], player->scale);
 			}
+			ao_play(player->audioOutDevice, (char *)player->mp3Audio, frame_size);
 
-			/* calc song length using the framerate of the first decoded frame */
-			player->songDuration = (unsigned long long int) player->waith.request.contentLength /
-					((unsigned long long int) player->mp3Frame.header.bitrate /
-					(unsigned long long int) BAR_PLAYER_MS_TO_S_FACTOR / 8LL);
+			break;
 
-			/* must be > PLAYER_SAMPLESIZE_INITIALIZED, otherwise time won't
-			 * be visible to user (ugly, but mp3 decoding != aac decoding) */
-			player->mode = PLAYER_RECV_DATA;
+		case MPG123_NEED_MORE:
+			break;
+
+		default:
+			break;
 		}
-		/* samples * length * channels */
-		ao_play (player->audioOutDevice, (char *) player->madDecoded,
-				player->mp3Synth.pcm.length * 2 * 2);
 
 		/* avoid division by 0 */
 		if (player->mode == PLAYER_RECV_DATA) {
-			/* same calculation as in aac player; don't need to divide by
-			 * channels, length is number of samples for _one_ channel */
-			player->songPlayed += (unsigned long long int) player->mp3Synth.pcm.length *
+			player->songPlayed += frame_size / (player->channels * sizeof(short)) *
 					(unsigned long long int) BAR_PLAYER_MS_TO_S_FACTOR /
 					(unsigned long long int) player->samplerate;
 		}
@@ -489,10 +455,10 @@ static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size,
 		if (BarPlayerCheckPauseQuit (player)) {
 			return WAITRESS_CB_RET_ERR;
 		}
-	} while (player->mp3Stream.error != MAD_ERROR_BUFLEN);
+	} while (frame_size > 0);
 
-	player->bufferRead += player->mp3Stream.next_frame - player->buffer;
-
+	// MPG123 consumes entire buffer
+	player->bufferRead = player->bufferFilled;
 #if defined(ENABLE_SHOUT)
 	// send raw mp3 data to icecast server
 	if (player->shoutcast) {
@@ -508,12 +474,11 @@ static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size,
 	/* Dump stream data to file */
 	ripit_write_stream(player);
 #endif
-
-	BarPlayerBufferMove (player);
+	player->bufferFilled = 0;
 
 	return WAITRESS_CB_RET_OK;
 }
-#endif /* ENABLE_MAD */
+#endif /* ENABLE_MPG123 */
 
 /*	player thread; for every song a new thread is started
  *	@param audioPlayer structure
@@ -548,15 +513,14 @@ void *BarPlayerThread (void *data) {
 			break;
 		#endif /* ENABLE_FAAD */
 
-		#ifdef ENABLE_MAD
+		#ifdef ENABLE_MPG123
 		case PIANO_AF_MP3:
-			mad_stream_init (&player->mp3Stream);
-			mad_frame_init (&player->mp3Frame);
-			mad_synth_init (&player->mp3Synth);
-			player->madDecoded = malloc (2 * 1152 * sizeof(short int));
+			mpg123_init();
+			player->mh = mpg123_new(NULL, NULL);
+			mpg123_open_feed(player->mh);
 			player->waith.callback = BarPlayerMp3Cb;
 			break;
-		#endif /* ENABLE_MAD */
+		#endif /* ENABLE_MPG123 */
 
 		default:
 			BarUiMsg (player->settings, MSG_ERR, "Unsupported audio format!\n");
@@ -584,16 +548,13 @@ void *BarPlayerThread (void *data) {
 			break;
 		#endif /* ENABLE_FAAD */
 
-		#ifdef ENABLE_MAD
+		#ifdef ENABLE_MPG123
 		case PIANO_AF_MP3:
-			mad_synth_finish (&player->mp3Synth);
-			mad_frame_finish (&player->mp3Frame);
-			mad_stream_finish (&player->mp3Stream);
-			if (player->madDecoded)
-				free(player->madDecoded);
-			player->madDecoded = NULL;
+			mpg123_close(player->mh);
+			mpg123_delete(player->mh);
+			mpg123_exit();
 			break;
-		#endif /* ENABLE_MAD */
+		#endif /* ENABLE_MPG123 */
 
 		default:
 			/* this should never happen */

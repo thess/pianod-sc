@@ -8,7 +8,7 @@ Dependencies
 - gcrypt
 - gnutls or mbed TLS
 - json-c
-- libfaad2 and/or libmad
+- libfaad2 and/or libmpg123 (pandora one)
 - UTF-8 console/locale
 
 These can each be downloaded and set up, but most systems have package

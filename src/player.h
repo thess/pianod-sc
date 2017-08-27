@@ -30,8 +30,8 @@ THE SOFTWARE.
 #include <neaacdec.h>
 #endif
 
-#ifdef ENABLE_MAD
-#include <mad.h>
+#ifdef ENABLE_MPG123
+#include <mpg123.h>
 #endif
 
 #include <ao/ao.h>
@@ -104,11 +104,9 @@ struct audioPlayer {
 	#endif
 
 	/* mp3 */
-	#ifdef ENABLE_MAD
-	struct mad_stream mp3Stream;
-	struct mad_frame mp3Frame;
-	struct mad_synth mp3Synth;
-	signed short int *madDecoded;
+	#ifdef ENABLE_MPG123
+	mpg123_handle *mh;
+	short *mp3Audio;
 	#endif
 
 	/* audio out */

@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 AC_INIT([pianod],
-	174.06-sc,
+	174.07-sc,
 	[pianod@lists.deviousfish.com],
 	,[http://deviousfish.com/pianod])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
@@ -33,8 +33,8 @@ AC_CHECK_LIB([pthread], [pthread_create],,
 # validate that these are correct, so check lib to make sure they're right.
 PKG_CHECK_MODULES([ao], [ao],,
 	[AC_MSG_WARN([No pkg-config for libao])])
-PKG_CHECK_MODULES([mad], [mad],,
-	[AC_MSG_WARN([No pkg-config for libmad])])
+PKG_CHECK_MODULES([mpg123], [libmpg123],,
+	[AC_MSG_WARN([No pkg-config for libmpg123])])
 PKG_CHECK_MODULES([json], [json-c],,
 	[PKG_CHECK_MODULES([json], [json],,
 		[PKG_CHECK_MODULES([json], [json0],,
@@ -49,8 +49,6 @@ AC_ARG_WITH(mbedtls, [  --with-mbedtls          build waitress with mbed TLS (de
   AC_MSG_RESULT(>>Using mbedTLS)
   HAS_MBEDTLS=1
   AC_DEFINE([USE_MBEDTLS], 1, [Build for mbed TLS])
-  PKG_CHECK_MODULES([mbedtls], [mbedtls],,
-		[AC_MSG_WARN([No pkg-config for libmbedtls])])
   AC_CHECK_LIB([mbedtls], [mbedtls_ssl_set_session],,
 		[AC_MSG_ERROR([Cannot find required library: libmbedtls],1)])
   AC_CHECK_LIB([mbedcrypto], [mbedtls_entropy_func],,
@@ -78,16 +76,16 @@ AC_CHECK_LIB([json], [json_object_new_string],,
 # Audio-related libraries:
 AC_CHECK_LIB([ao], [ao_play],,
 	[AC_MSG_ERROR([Cannot find required library: libao],1)])
-AC_CHECK_LIB([mad], [mad_stream_init])
-if test "$ac_cv_lib_mad_mad_stream_init" = "yes"; then
-	AC_DEFINE([ENABLE_MAD],[1],[Define if libmad is installed])
+AC_CHECK_LIB([mpg123], [mpg123_init])
+if test "$ac_cv_lib_mpg123_mpg123_init" = "yes"; then
+	AC_DEFINE([ENABLE_MPG123],[1],[Define if libmg123 is installed])
 fi
 AC_CHECK_LIB([faad], [NeAACDecOpen])
 if test "$ac_cv_lib_faad_NeAACDecOpen" = "yes"; then
 	AC_DEFINE([ENABLE_FAAD],[1],[Define if faad2 is installed])
 fi
-if test "$ac_cv_lib_mad_mad_stream_init" = "no" -a "$ac_cv_lib_faad_NeAACDecOpen" = "no"; then
-	AC_MSG_ERROR([Cannot find required library: at least one of libfaad (faad2), libmad],1)
+if test "$ac_cv_lib_mpg123_mpg123_init" = "no" -a "$ac_cv_lib_faad_NeAACDecOpen" = "no"; then
+	AC_MSG_ERROR([Cannot find required library: at least one of libfaad (faad2), libmpg123],1)
 fi
 
 # Stream capture
