@@ -248,7 +248,7 @@ static WaitressCbReturn_t BarPlayerAACCb (void *ptr, size_t size,
 			player->songPlayed += (unsigned long long int) frameInfo.samples *
 					(unsigned long long int) BAR_PLAYER_MS_TO_S_FACTOR /
 					(unsigned long long int) player->samplerate /
-					(unsigned long long int) player->channels;
+					(unsigned long long int) (player->channels ? player->channels : 1);
 		}
 		if (player->sampleSizeCurr >= player->sampleSizeN) {
 			/* no more frames, drop data */
@@ -335,7 +335,7 @@ static WaitressCbReturn_t BarPlayerAACCb (void *ptr, size_t size,
 					player->songDuration = (unsigned long long int) player->sampleSizeN *
 							4096LL * (unsigned long long int) BAR_PLAYER_MS_TO_S_FACTOR /
 							(unsigned long long int) player->samplerate /
-							(unsigned long long int) player->channels;
+							(unsigned long long int) (player->channels ? player->channels : 1);
 					break;
 				} else {
 					memcpy (&player->sampleSize[player->sampleSizeCurr],
