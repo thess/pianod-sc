@@ -23,7 +23,7 @@ THE SOFTWARE.
 
 #ifndef __FreeBSD__
 #define _POSIX_C_SOURCE 1 /* required by getaddrinfo() */
-#define _BSD_SOURCE /* snprintf() */
+#define _DEFAULT_SOURCE /* snprintf() */
 #define _DARWIN_C_SOURCE /* snprintf() on OS X */
 #endif
 
@@ -50,6 +50,7 @@ THE SOFTWARE.
 #include <mbedtls/entropy.h>
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/x509.h>
+#include <mbedtls/version.h>
 #include <mbedtls/sha1.h>
 
 struct _mbedtls_ctx
@@ -795,7 +796,11 @@ static WaitressReturn_t WaitressTlsVerify (const WaitressHandle_t *waith) {
 		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
+#if MBEDTLS_VERSION_NUMBER >= 0x02070000
+	mbedtls_sha1_ret (cert->raw.p, cert->raw.len, fingerprint);
+#else
 	mbedtls_sha1 (cert->raw.p, cert->raw.len, fingerprint);
+#endif
 
 	if (memcmp (fingerprint, waith->tlsFingerprint, sizeof (fingerprint)) != 0) {
 		return WAITRESS_RET_TLS_FINGERPRINT_MISMATCH;

@@ -32,7 +32,7 @@
 
 #ifndef __FreeBSD__
 #define _POSIX_C_SOURCE 1 /* fileno() */
-#define _BSD_SOURCE /* strdup() */
+#define _DEFAULT_SOURCE /* strdup() */
 #define _DARWIN_C_SOURCE /* strdup() on OS X */
 #endif
 
@@ -74,20 +74,7 @@
 extern void ripit_open_file(struct audioPlayer *player, PianoSong_t *song);
 #endif
 
-#ifndef HAVE_SETPROGNAME
-static const char *progname;
-void setprogname (const char *name) {
-    const char *last = strrchr(name, '/');
-    if (last) {
-        progname = last+1;
-    } else {
-        progname = name;
-    }
-}
-const char *getprogname (void) {
-    return progname;
-}
-#endif
+static const char *progname = "pianod";
 
 /*	Fetch a new playlist from Pandora.
  */
@@ -655,7 +642,7 @@ static void usage () {
 #if defined(ENABLE_CAPTURE)
 			 "  -m capturedir : a directory for stream capture\n"
 #endif
-			 , getprogname());
+			 , progname);
 }
 
 
@@ -674,7 +661,6 @@ int main (int argc, char **argv) {
     struct stat sbuf;
 #endif
 
-    setprogname(*argv);
 	memset (&app, 0, sizeof (app));
 
 	settings_get_config_dir (PACKAGE, "startscript", startscriptname, sizeof (startscriptname));

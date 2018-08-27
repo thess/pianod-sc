@@ -8,7 +8,7 @@
 */ 
 
 #ifndef __FreeBSD__
-#define _BSD_SOURCE /* strdup() */
+#define _DEFAULT_SOURCE /* strdup() */
 #define _DARWIN_C_SOURCE /* strdup() on OS X */
 #endif
 

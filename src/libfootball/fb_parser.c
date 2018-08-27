@@ -62,7 +62,7 @@
 #include <config.h>
 
 #ifndef __FreeBSD__
-#define _BSD_SOURCE /* snprintf() */
+#define _DEFAULT_SOURCE /* snprintf() */
 #endif
 
 #include <stdio.h>

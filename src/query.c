@@ -9,7 +9,7 @@
 
 #ifndef __FreeBSD__
 #define _POSIX_C_SOURCE 1 /* fileno() */
-#define _BSD_SOURCE /* strdup() */
+#define _DEFAULT_SOURCE /* strdup() */
 #define _DARWIN_C_SOURCE /* strdup() on OS X */
 #endif
 

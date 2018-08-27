@@ -12,7 +12,7 @@
 #define _POSIX_C_SOURCE 1 /* fileno,fdopen() */
 #endif
 #ifndef __FreeBSD__
-#define _BSD_SOURCE /* strdup */
+#define _DEFAULT_SOURCE /* strdup */
 #endif
 
 #include <stdio.h>

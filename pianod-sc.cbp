@@ -96,10 +96,6 @@
 		<Unit filename="src/libfootball/fb_utility.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/libfootball/fgetln.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/libfootball/fgetln.h" />
 		<Unit filename="src/libfootball/sha1.c">
 			<Option compilerVar="CC" />
 		</Unit>

@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 AC_INIT([pianod],
-	174.08-sc,
+	174.09-sc,
 	[pianod@lists.deviousfish.com],
 	,[http://deviousfish.com/pianod])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
@@ -107,15 +107,6 @@ AM_CONDITIONAL([ENABLE_SHOUT],[test "x$HAS_SHOUT" = "x1"])
 # Find password encryption library:
 AC_SEARCH_LIBS([crypt],[crypt], [],
 	[AC_MSG_ERROR([Cannot find required library: crypt (DES password encryption).])])
-
-# Fgetln for Football:
-# May be in standard libraries, in -lbsd on Linux, or not exist at all.
-AC_SEARCH_LIBS([fgetln],[bsd],
-	[AC_DEFINE([HAVE_FGETLN],[1],[Set to 1 if fgetln is available])])
-AC_SEARCH_LIBS([getprogname],[bsd],
-	[AC_DEFINE([HAVE_GETPROGNAME],[1],[Set to 1 if getprogname/setprogname is available])])
-
-AM_CONDITIONAL([HAVE_FGETLN],[test "$ac_cv_search_fgetln" = 'none required'])
 
 # IPv6 support
 AC_MSG_CHECKING([PF_INET6/IPv6 support])

@@ -10,7 +10,7 @@
 #include <config.h>
 
 #ifndef __FreeBSD__
-#define _BSD_SOURCE /* snprintf() */
+#define _DEFAULT_SOURCE /* snprintf() */
 #endif
 #if !defined(__FreeBSD__) && !defined(__APPLE__)
 #define _POSIX_C_SOURCE 1 /* required by getaddrinfo() */
@@ -30,10 +30,6 @@
 #include <assert.h>
 
 #include "fb_service.h"
-
-#ifndef HAVE_FGETLN
-#include "fgetln.h"
-#endif
 
 #ifndef HAVE_MSG_NOSIGNAL
 #define MSG_NOSIGNAL (0)
@@ -369,7 +365,7 @@ static char *fb_get_line_bytes (FB_CONNECTION *connection, size_t *length) {
         assert (connection->in.size <= connection->in.capacity);
         if (connection->in.size == connection->in.capacity) {
             if (!fb_set_input_buffer_size (connection, connection->in.capacity * 2 + 64)) {
-                return false;
+                return NULL;
             }
         }
         ok = fb_recv_input (connection, 1);
@@ -390,45 +386,55 @@ static char *fb_get_line_bytes (FB_CONNECTION *connection, size_t *length) {
     @param connection the connection from which input is read
     @return An FB_EVENT_INPUT event, or input is incomplete.
  */
+/* Global buffer for getline() */
+static char *buffer = NULL;
+static size_t bufsize = 0;
+
 FB_EVENT *fb_read_line_input (FB_EVENT *event, FB_CONNECTION *connection) {
 	assert (connection);
 	assert (event);
 	char *line;
-    char *buffer = NULL;
-	size_t buffilled = 0;
+	size_t lbufsize;
+	char *evbuffer;
 	/* If we got here, socket_data will be for a connection */
 	event->type = FB_EVENT_INPUT;
     if (connection->file) {
         /* Reading from file connection */
-        line = fgetln (connection->file, &buffilled);
-        if (!line || buffilled == 0) {
+        lbufsize = getline(&buffer, &bufsize, connection->file);
+        if ((lbufsize == -1) || (buffer == NULL)) {
             /* EOF/Connection closed from other end. Initiate closure. */
+            if (buffer) {
+                free(buffer);
+                buffer = NULL;
+            }
             fb_close_connection (connection);
             return NULL;
         }
+        line = buffer;
     } else {
-        line = fb_get_line_bytes (connection, &buffilled);
+        line = fb_get_line_bytes (connection, &lbufsize);
         if (!line) {
             /* Haven't got a full line yet, or error. */
             return NULL;
         }
     }
 
-	/* Make a copy of the line */
-	buffer = malloc (buffilled + 1);
-	if (!buffer) {
-        fb_perror ("malloc");
+	/* Make a copy of the line for event queue */
+	evbuffer = malloc (lbufsize + 1);
+	if (!evbuffer) {
+		fb_perror ("malloc");
 		return NULL;
 	}
-	memcpy (buffer, line, buffilled);
+	memcpy (evbuffer, line, lbufsize);
 	/* strip returns off the end of the unparsed line */
-	while (buffilled > 0 && (buffer [buffilled - 1] == '\r' || buffer [buffilled - 1] == '\n')) {
-		buffilled--;
+	while (lbufsize > 0 && (evbuffer [lbufsize - 1] == '\r' || evbuffer [lbufsize - 1] == '\n')) {
+		lbufsize--;
 	}
-	buffer [buffilled] = '\0';
+	/* NULL termination always */
+	evbuffer [lbufsize] = '\0';
 
 	/* Store the command and parse it into an argv array */
-	event->command = buffer;
+	event->command = evbuffer;
 	event->argc = fb_create_argv(event->command, &event->argv, &event->argr);
 	if (event->argc < 0) {
 		event->argc = 0;

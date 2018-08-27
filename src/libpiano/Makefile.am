@@ -21,7 +21,7 @@ if HAVE_JSON_H
 have_json_h		= -DHAVE_JSON_H=1
 endif
 
-libpiano_a_CPPFLAGS	= $(json_CFLAGS) -I../include -DGCRYPT_NO_DEPRECATED $(request_assert) $(have_json_json_h) $(have_json_c_json_h) $(have_json_h)
+libpiano_a_CPPFLAGS	= $(json_CFLAGS) -D_GNU_SOURCE -I../include -DGCRYPT_NO_DEPRECATED $(request_assert) $(have_json_json_h) $(have_json_c_json_h) $(have_json_h)
 libpiano_a_SOURCES	= crypt.c piano.c request.c response.c list.c \
 			  config.h piano.h crypt.h piano_private.h
 

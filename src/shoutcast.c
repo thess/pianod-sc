@@ -128,7 +128,7 @@ void sc_close_service(sc_service *svc)
 	// Cleanup queue
 	thread_queue_cleanup(&svc->sc_queue, 0);
 
-	if (svc->si);
+	if (svc->si)
 		free(svc->si);
 
 	if (svc->shout)
