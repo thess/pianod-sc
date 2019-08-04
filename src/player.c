@@ -39,9 +39,10 @@ THE SOFTWARE.
 #define bigToHostEndian32(x) ntohl(x)
 
 #if defined(ENABLE_CAPTURE)
-void ripit_open_file(struct audioPlayer *player, PianoSong_t *song);
-void ripit_close_file(struct audioPlayer *player);
-void ripit_write_stream(struct audioPlayer *player);
+void capture_open_file(struct audioPlayer *player, PianoSong_t *song, char *station_name);
+void capture_close_file(struct audioPlayer *player);
+void capture_write_stream(struct audioPlayer *player);
+int ID3WriteTags(struct audioPlayer *player, PianoSong_t *song, char *station_name);
 #endif
 
 /* pandora uses float values with 2 digits precision. Scale them by 100 to get
@@ -372,7 +373,7 @@ static WaitressCbReturn_t BarPlayerAACCb (void *ptr, size_t size,
 
 #if defined(ENABLE_CAPTURE)
 	/* Dump decoded data to file */
-	ripit_write_stream(player);
+	capture_write_stream(player);
 #endif
 
 	BarPlayerBufferMove (player);
@@ -472,7 +473,7 @@ static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size, void *stream) 
 
 #if defined(ENABLE_CAPTURE)
 	/* Dump stream data to file */
-	ripit_write_stream(player);
+	capture_write_stream(player);
 #endif
 	player->bufferFilled = 0;
 
@@ -564,7 +565,7 @@ void *BarPlayerThread (void *data) {
 
 #if defined(ENABLE_CAPTURE)
 	/* Close stream capture */
-	ripit_close_file(player);
+	capture_close_file(player);
 #endif
 
 	if (player->aoError) {
@@ -590,12 +591,12 @@ cleanup:
 
 #if defined(ENABLE_CAPTURE)
 
-/***************
- * Stream ripper
- ***************/
+/*************************
+ * Stream cpature routines
+ *************************/
 
 /* strcat and fixup legal file name */
-char *ripit_normalize_strcat(char *fname, char *str)
+char *capture_normalize_strcat(char *fname, char *str)
 {
 	char *iptr = str;
 	char *optr = fname + strlen(fname);
@@ -635,14 +636,30 @@ char *ripit_normalize_strcat(char *fname, char *str)
 	return fname;
 }
 
-void ripit_open_file(struct audioPlayer *player, PianoSong_t *song)
+void capture_reset(struct audioPlayer *player)
+{
+	// Alias const settings
+	BarSettings_t *settings = (BarSettings_t *)player->settings;
+
+	capture_close_file(player);
+
+	settings->capture_pathlen = 0;
+	if (settings->capture_path) {
+		free (settings->capture_path);
+		settings->capture_path = NULL;
+	}
+
+	return;
+}
+
+void capture_open_file(struct audioPlayer *player, PianoSong_t *song, char *station_name)
 {
 	int namelen;
 	char *file_name;
 
-    // Safety cleanup
-    if (player->ripit_file)
-		ripit_close_file(player);
+	// Safety cleanup
+	if (player->capture_file)
+		capture_close_file(player);
 
 	namelen = player->settings->capture_pathlen;
 	namelen += strlen(song->artist);
@@ -656,49 +673,59 @@ void ripit_open_file(struct audioPlayer *player, PianoSong_t *song)
 		file_name[player->settings->capture_pathlen + 1] = '\0';
 	}
 
-	ripit_normalize_strcat(file_name, song->artist);
+	capture_normalize_strcat(file_name, song->artist);
 	strcat(file_name, " - ");
-	ripit_normalize_strcat(file_name, song->title);
+	capture_normalize_strcat(file_name, song->title);
 	strcat(file_name, (player->audioFormat == PIANO_AF_AACPLUS) ? ".aac" : ".mp3");
 
-	player->ripit_file = fopen(file_name, "wb");
-	chmod(file_name, 0664);
-	if (!player->ripit_file) {
+	player->capture_file = fopen(file_name, "wb");
+	if (!player->capture_file) {
 		flog(LOG_ERROR, "Capture file open failed(%d): %s", errno, strerror(errno));
+		capture_reset(player);
+		return;
+	}
+	chmod(file_name, 0664);
+
+	if (ID3WriteTags(player, song, station_name) < 0) {
+		// Reset capture on error
+		capture_reset(player);
+		return;
 	}
 
-    player->ripit_fname = file_name;
+	player->capture_fname = file_name;
 
 	return;
 }
 
-void ripit_close_file(struct audioPlayer *player)
+void capture_close_file(struct audioPlayer *player)
 {
-    struct stat sbuf;
+	struct stat sbuf;
 
-	if (player->ripit_file) {
-        // Check for 0-length files and remove them
-        stat(player->ripit_fname, &sbuf);
-        if (sbuf.st_size == 0) {
-            unlink(player->ripit_fname);
-        }
-        // close file & release name
-		fclose(player->ripit_file);
-		free(player->ripit_fname);
+	if (player->capture_file) {
+		// Check for 0-length files and remove them
+		stat(player->capture_fname, &sbuf);
+		if (sbuf.st_size == 0) {
+			unlink(player->capture_fname);
+		}
+		// close file & release name
+		fclose(player->capture_file);
+		if (player->capture_fname) {
+			free(player->capture_fname);
+		}
 	}
 
-	player->ripit_file = NULL;
-    player->ripit_fname = NULL;
+	player->capture_file = NULL;
+	player->capture_fname = NULL;
 
-    return;
+	return;
 }
 
-void ripit_write_stream(struct audioPlayer *player)
+void capture_write_stream(struct audioPlayer *player)
 {
-	if (player->ripit_file) {
+	if (player->capture_file) {
 		fwrite(player->buffer, sizeof(char),
 		       player->bufferRead,
-		       player->ripit_file);
+		       player->capture_file);
 	}
 }
 

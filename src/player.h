@@ -86,8 +86,8 @@ struct audioPlayer {
 
 #if defined(ENABLE_CAPTURE)
 	/* Ripit */
-	FILE *ripit_file;
-	char *ripit_fname;
+	FILE *capture_file;
+	char *capture_fname;
 #endif
 #if defined(ENABLE_SHOUT)
 	/* Shoutcast */

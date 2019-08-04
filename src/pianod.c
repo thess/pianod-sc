@@ -71,7 +71,7 @@
 #endif
 
 #if defined(ENABLE_CAPTURE)
-extern void ripit_open_file(struct audioPlayer *player, PianoSong_t *song);
+extern void capture_open_file(struct audioPlayer *player, PianoSong_t *song, char *station_name);
 #endif
 
 static const char *progname = "pianod";
@@ -165,7 +165,8 @@ static void playback_start (APPSTATE *app, pthread_t *playerThread) {
 #if defined(ENABLE_CAPTURE)
 		/* open stream capture file if path given */
 		if (app->settings.capture_pathlen > 0) {
-			ripit_open_file(&app->player, app->current_song);
+			capture_open_file(&app->player, app->current_song,
+                   (app->selected_station) ? app->selected_station->name : NULL);
 		}
 #endif
 

@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 AC_INIT([pianod],
-	174.09-sc,
+	174.10-sc,
 	[pianod@lists.deviousfish.com],
 	,[http://deviousfish.com/pianod])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
@@ -92,6 +92,10 @@ fi
 AC_ARG_WITH(capture, [  --with-capture          build with stream capture support (default without)], [
 	AC_MSG_RESULT(>>Building with stream capture support)
 	HAS_CAPTURE=1
+	PKG_CHECK_MODULES([id3tag], [id3tag],,
+		[AC_MSG_WARN([No pkg-config for libid3tag])])
+	AC_CHECK_LIB([id3tag], [id3_tag_new],,
+		[AC_MSG_ERROR([Cannot find required library: libid3tag],1)])
 	AC_DEFINE([ENABLE_CAPTURE], 1, [Build stream capture support])] )
 AM_CONDITIONAL([ENABLE_CAPTURE],[test "x$HAS_CAPTURE" = "x1"])
 
