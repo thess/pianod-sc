@@ -48,7 +48,7 @@ union id3_field *ID3FindField(struct id3_frame *frame, enum id3_field_type ftype
     return field;
 };
 
-int ID3AddFrame(struct id3_tag* tags, char const* type, char const* value)
+int ID3AddFrame(struct id3_tag* tags, char const* type, id3_utf8_t const* value)
 {
     int status;
     struct id3_frame* frame = NULL;
@@ -87,7 +87,7 @@ int ID3AddFrame(struct id3_tag* tags, char const* type, char const* value)
             return -1;
         }
 
-        ucs4 = id3_latin1_ucs4duplicate((id3_latin1_t*)value);
+        ucs4 = id3_utf8_ucs4duplicate(value);
         if (ucs4 == NULL) {
             flog(LOG_ERROR, "ucs4 dup error.\n");
             id3_frame_delete(frame);
@@ -109,7 +109,7 @@ int ID3AddFrame(struct id3_tag* tags, char const* type, char const* value)
             return -1;
         }
 
-        ucs4 = id3_latin1_ucs4duplicate((id3_latin1_t*)value);
+        ucs4 = id3_utf8_ucs4duplicate(value);
         if (ucs4 == NULL) {
             flog(LOG_ERROR, "ucs4 dup error.\n");
             id3_frame_delete(frame);
@@ -162,11 +162,11 @@ int ID3WriteTags(struct audioPlayer *player, PianoSong_t *song, char *station_na
 
     // Add some data to the tag
 
-    status = ID3AddFrame(tags, ID3_FRAME_ARTIST, song->artist);
-    status += ID3AddFrame(tags, ID3_FRAME_TITLE, song->title);
-    status += ID3AddFrame(tags, ID3_FRAME_ALBUM, song->album);
+    status = ID3AddFrame(tags, ID3_FRAME_TITLE, (id3_utf8_t *)song->title);
+    status += ID3AddFrame(tags, ID3_FRAME_ARTIST, (id3_utf8_t *)song->artist);
+    status += ID3AddFrame(tags, ID3_FRAME_ALBUM, (id3_utf8_t *)song->album);
     if (station_name) {
-        status += ID3AddFrame(tags, ID3_FRAME_COMMENT, station_name);
+        status += ID3AddFrame(tags, ID3_FRAME_COMMENT, (id3_utf8_t *)station_name);
     }
 
     if (status != 0) {
@@ -199,7 +199,7 @@ int ID3WriteTags(struct audioPlayer *player, PianoSong_t *song, char *station_na
     free(tag_buffer);
     id3_tag_delete(tags);
 
-    if (nc < 0) {
+    if (nc != size2) {
         flog(LOG_ERROR, "Tag write error (%d) %s\n", errno, strerror(errno));
         return 1;
     }

@@ -16,7 +16,10 @@ pianod_SOURCES	= command.h logging.h pianod.h event.h \
 		  seeds.h settings.h support.h tuner.h users.h lamercipher.c \
 		  command.c logging.c pianod.c pianoextra.c event.c \
 		  player.c query.c response.c seeds.c settings.c \
-		  support.c tuner.c users.c id3tags.c
+		  support.c tuner.c users.c 
+if ENABLE_ID3
+pianod_SOURCES += id3tags.c
+endif
 
 if ENABLE_SHOUT
 pianod_SOURCES += threadqueue.h shoutcast.h threadqueue.c shoutcast.c

@@ -71,7 +71,7 @@ struct _stream_data {
 typedef struct _stream_data stream_data;
 
 extern sc_service *sc_init_service(char *server_info);
-extern int sc_start_service(sc_service *svc);
+extern int sc_start_service(sc_service *svc, char *station_name);
 extern void sc_close_service(sc_service *svc);
 
 extern stream_data *sc_buffer_get(size_t len);

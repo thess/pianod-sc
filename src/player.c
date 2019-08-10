@@ -42,7 +42,9 @@ THE SOFTWARE.
 void capture_open_file(struct audioPlayer *player, PianoSong_t *song, char *station_name);
 void capture_close_file(struct audioPlayer *player);
 void capture_write_stream(struct audioPlayer *player);
+#if defined(ENABLE_ID3)
 int ID3WriteTags(struct audioPlayer *player, PianoSong_t *song, char *station_name);
+#endif
 #endif
 
 /* pandora uses float values with 2 digits precision. Scale them by 100 to get
@@ -90,7 +92,7 @@ unsigned int BarPlayerCalcScale (const float applyGain) {
 
 /*	apply replaygain to signed short value
  *	@param value
- *	@param replaygain scale (calculated by computeReplayGainScale)
+ *	@/ replaygain scale (calculated by computeReplayGainScale)
  *	@return scaled value
  */
 static inline signed short int applyReplayGain (const signed short int value,
@@ -395,8 +397,14 @@ static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size, void *stream) 
 	int encoding, channels;\
 	long rate;
 	size_t frame_size;
+	int status, ftype;
 #if defined(ENABLE_SHOUT)
 	stream_data *sdata;
+#endif
+#if defined(ENABLE_CAPTURE)
+    uint32_t mp3_frame_header;
+    unsigned char *mp3_frame_body;
+    size_t mp3_frame_size;
 #endif
 
 	if (BarPlayerCheckPauseQuit (player) ||
@@ -406,8 +414,8 @@ static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size, void *stream) 
 
 	mpg123_feed(player->mh, player->buffer, player->bufferFilled);
 	do {
-		int err = mpg123_decode_frame(player->mh, &frame_offset, (unsigned char **)&player->mp3Audio, &frame_size);
-		switch (err) {
+        ftype = mpg123_framebyframe_next(player->mh);
+		switch (ftype) {
 		case MPG123_NEW_FORMAT:
 			mpg123_getformat(player->mh, &rate, &channels, &encoding);
 			player->samplerate = rate;
@@ -428,15 +436,40 @@ static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size, void *stream) 
 				 * be visible to user (ugly, but mp3 decoding != aac decoding) */
 				player->mode = PLAYER_RECV_DATA;
 			}
-			break;
-
+			// Fall-thru to MPG123_OK and decode frame
 		case MPG123_OK:
-			/* samples * length * channels */
-			for (i = 0; i < (frame_size / sizeof(short)); i++) {
-				player->mp3Audio[i] = applyReplayGain(player->mp3Audio[i], player->scale);
-			}
-			ao_play(player->audioOutDevice, (char *)player->mp3Audio, frame_size);
-
+#if defined(ENABLE_CAPTURE)
+            status = mpg123_framedata(player->mh, (unsigned long *)&mp3_frame_header, &mp3_frame_body, &mp3_frame_size);;
+            if (status == MPG123_OK) {
+                if (player->capture_file) {
+                    // Stream with Xing header doesn't always have correct bitrate for length determination
+                    if ((ftype == MPG123_NEW_FORMAT) && (strncmp((char *)&mp3_frame_body[32], "Xing", 4) == 0)) {
+                        // Set bitrate to Pandora default of 192 in MP3 frame header (max VBR)
+                        mp3_frame_header = (mp3_frame_header & 0xFFFF0FFF) | 0x0000B000;
+                    }
+                    // Write MP3 header followed by frame data
+                    mp3_frame_header = ntohl(mp3_frame_header);
+                    fwrite(&mp3_frame_header, sizeof(uint32_t), 1, player->capture_file);
+                    fwrite(mp3_frame_body, sizeof(char), mp3_frame_size, player->capture_file);
+                }
+            } else {
+                BarUiMsg(player->settings, MSG_ERR, "MPG123 parser error\n");
+                return WAITRESS_CB_RET_ERR;
+            }
+#endif
+            status = mpg123_framebyframe_decode(player->mh, &frame_offset, (unsigned char **)&player->mp3Audio, &frame_size);
+            if (status != MPG123_OK) {
+                BarUiMsg(player->settings, MSG_ERR, "MPG123 decode error = %d\n", status);
+                return WAITRESS_CB_RET_ERR;
+            }
+            // Decoder can return 0 bytes if no frame found
+            if (frame_size > 0) {
+                /* samples * length * channels */
+                for (i = 0; i < (frame_size / sizeof(short)); i++) {
+                    player->mp3Audio[i] = applyReplayGain(player->mp3Audio[i], player->scale);
+                }
+                ao_play(player->audioOutDevice, (char *)player->mp3Audio, frame_size);
+            }
 			break;
 
 		case MPG123_NEED_MORE:
@@ -456,7 +489,7 @@ static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size, void *stream) 
 		if (BarPlayerCheckPauseQuit (player)) {
 			return WAITRESS_CB_RET_ERR;
 		}
-	} while (frame_size > 0);
+	} while ((ftype != MPG123_NEED_MORE) && (ftype != MPG123_DONE));
 
 	// MPG123 consumes entire buffer
 	player->bufferRead = player->bufferFilled;
@@ -471,10 +504,6 @@ static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size, void *stream) 
 	}
 #endif
 
-#if defined(ENABLE_CAPTURE)
-	/* Dump stream data to file */
-	capture_write_stream(player);
-#endif
 	player->bufferFilled = 0;
 
 	return WAITRESS_CB_RET_OK;
@@ -518,6 +547,7 @@ void *BarPlayerThread (void *data) {
 		case PIANO_AF_MP3:
 			mpg123_init();
 			player->mh = mpg123_new(NULL, NULL);
+			mpg123_param(player->mh, MPG123_ADD_FLAGS, (MPG123_SKIP_ID3V2 | MPG123_IGNORE_INFOFRAME), 0);
 			mpg123_open_feed(player->mh);
 			player->waith.callback = BarPlayerMp3Cb;
 			break;
@@ -686,11 +716,13 @@ void capture_open_file(struct audioPlayer *player, PianoSong_t *song, char *stat
 	}
 	chmod(file_name, 0664);
 
-	if (ID3WriteTags(player, song, station_name) < 0) {
+#if defined(ENABLE_ID3)
+	if (ID3WriteTags(player, song, station_name) != 0) {
 		// Reset capture on error
 		capture_reset(player);
 		return;
 	}
+#endif
 
 	player->capture_fname = file_name;
 

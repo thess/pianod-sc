@@ -11,7 +11,7 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="-s 0 -C /etc/ssl/certs  -i /opt/pianod/pianod-setup/pianod-gpr.startscript -c /opt/pianod/pianod-client" />
+				<Option parameters="-s 0 -C /etc/ssl/certs  -i /opt/pianod/pianod-setup/pianod-test.startscript -c /opt/pianod/pianod-client" />
 				<Compiler>
 					<Add option="-g" />
 					<Add directory="./" />
@@ -40,6 +40,7 @@
 			<Add option="-DUSE_MBEDTLS=1" />
 			<Add option="-D_GNU_SOURCE" />
 			<Add option="-DEZXML_NOMMAP=1" />
+			<Add option="-DENABLE_CAPTURE=1" />
 			<Add directory="./" />
 			<Add directory="src/libfootball" />
 			<Add directory="src/libwaitress" />

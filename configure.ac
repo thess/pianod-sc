@@ -92,12 +92,19 @@ fi
 AC_ARG_WITH(capture, [  --with-capture          build with stream capture support (default without)], [
 	AC_MSG_RESULT(>>Building with stream capture support)
 	HAS_CAPTURE=1
-	PKG_CHECK_MODULES([id3tag], [id3tag],,
-		[AC_MSG_WARN([No pkg-config for libid3tag])])
-	AC_CHECK_LIB([id3tag], [id3_tag_new],,
-		[AC_MSG_ERROR([Cannot find required library: libid3tag],1)])
+
+	AC_ARG_WITH(id3tags, [  --with-id3tags          build with ID3v2.4 tag support (default without)], [
+		AC_MSG_RESULT(>>>Including ID3 tags)
+		HAS_ID3=1
+		AC_DEFINE([ENABLE_ID3], 1, [Include ID3 tags on captured streams])
+		PKG_CHECK_MODULES([id3tag], [id3tag],,
+			[AC_MSG_WARN([No pkg-config for libid3tag])])
+		AC_CHECK_LIB([id3tag], [id3_tag_new],,
+			[AC_MSG_ERROR([Cannot find required library: libid3tag],1)]) ])
+
 	AC_DEFINE([ENABLE_CAPTURE], 1, [Build stream capture support])] )
 AM_CONDITIONAL([ENABLE_CAPTURE],[test "x$HAS_CAPTURE" = "x1"])
+AM_CONDITIONAL([ENABLE_ID3],[test "x$HAS_ID3" = "x1"])
 
 # Shoutcast support
 AC_ARG_WITH(shoutcast, [  --with-shoutcast        build with shoutcast support (default without)], [

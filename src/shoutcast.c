@@ -148,7 +148,7 @@ void sc_close_service(sc_service *svc)
 	return;
 }
 
-int sc_stream_setup(sc_service *svc)
+int sc_stream_setup(sc_service *svc, char *station_name)
 {
 	shout_t *shout = svc->shout;
 
@@ -192,8 +192,11 @@ int sc_stream_setup(sc_service *svc)
 		flog(LOG_ERROR, "%s: shout_set_genre(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
-	// ***TODO*** Set to Pandora station name
-	if (shout_set_description(shout, "Things I listen to") != SHOUTERR_SUCCESS) {
+	if (!station_name) {
+		// whatever
+		station_name = "Things I listen to";
+	}
+	if (shout_set_description(shout, station_name) != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_description(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
@@ -243,7 +246,7 @@ int sc_shout_connect(sc_service *svc, int retry)
 	return 1;
 }
 
-int sc_start_service(sc_service *svc)
+int sc_start_service(sc_service *svc, char *station_name)
 {
 	// Do nothing if already running
 	if (svc->state == SC_RUNNING)
@@ -255,7 +258,7 @@ int sc_start_service(sc_service *svc)
 		return -1;
 	}
 
-	if (sc_stream_setup(svc)) {
+	if (sc_stream_setup(svc, station_name)) {
 		flog(LOG_ERROR, "%s: sc_stream_setup() failed", ourname);
 		return -1;
 	}

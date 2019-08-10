@@ -503,7 +503,8 @@ static void pianod_run_loop (APPSTATE *app) {
 							app->shoutcast = NULL;
 						} else {
 							// MP3 OK (192Kb assumed)
-							if (sc_start_service(app->shoutcast)) {
+							if (sc_start_service(app->shoutcast,
+                                            (app->selected_station) ? app->selected_station->name : NULL)) {
 								flog(LOG_ERROR, "Shoutcast startup failed");
 								sc_close_service(app->shoutcast);
 								app->shoutcast = NULL;
