@@ -48,7 +48,134 @@ union id3_field *ID3FindField(struct id3_frame *frame, enum id3_field_type ftype
     return field;
 };
 
-int ID3AddFrame(struct id3_tag* tags, char const* type, id3_utf8_t const* value)
+int ID3AddGainFrame(struct id3_tag* tags, float value)
+{
+    int status;
+    struct id3_frame* frame = NULL;
+    union id3_field* field;
+    id3_byte_t RGData[5];
+
+    /*
+     * Create the frame.
+     */
+    frame = id3_frame_new("RVA2");
+    if (frame == NULL) {
+        flog(LOG_ERROR, "Failed to create new frame (type = RVA2).\n");
+        return -1;
+    }
+
+    frame->flags &= ~ID3_FRAME_FLAG_FORMATFLAGS;
+
+    // Add identification
+    field = ID3FindField(frame, ID3_FIELD_TYPE_LATIN1);
+    if (field == NULL) {
+        id3_frame_delete(frame);
+        return -1;
+    }
+
+    status = id3_field_setlatin1(field, (id3_latin1_t *)"PandoraRG");
+    if (status != 0) {
+        flog(LOG_ERROR, "Failed to set RG ID.\n");
+        id3_frame_delete(frame);
+        return -1;
+    }
+
+    field = ID3FindField(frame, ID3_FIELD_TYPE_BINARYDATA);
+    if (field == NULL) {
+        id3_frame_delete(frame);
+        return -1;
+    }
+
+    // Set channel to master volume (0x01)
+    // Set gain to int16(DB * 512), peak to 0x00
+    memset(RGData, 0, sizeof(RGData));
+    RGData[0] = 0x01;
+    *(int16_t *)&RGData[1] = htobe16((int16_t)(value * 512.0));
+    status = id3_field_setbinarydata(field, RGData, sizeof(RGData));
+    if (status != 0) {
+        flog(LOG_ERROR, "Failed to set RG data.\n");
+        id3_frame_delete(frame);
+        return -1;
+    }
+
+    // Attach the frame to the tag.
+    status = id3_tag_attachframe(tags, frame);
+    if (status != 0) {
+        flog(LOG_ERROR, "Failed to attach frame (type = RVA2).\n");
+        id3_frame_delete(frame);
+        return -1;
+    }
+
+    return 0;
+}
+
+int ID3AddCommentFrame(struct id3_tag* tags, id3_utf8_t const* value)
+{
+    int status;
+    struct id3_frame* frame = NULL;
+    union id3_field* field;
+    id3_ucs4_t* ucs4 = NULL;
+
+    /*
+     * Create the frame.
+     */
+    frame = id3_frame_new(ID3_FRAME_COMMENT);
+    if (frame == NULL) {
+        flog(LOG_ERROR, "Failed to create new frame (type = COMM).\n");
+        return -1;
+    }
+
+    frame->flags &= ~ID3_FRAME_FLAG_FORMATFLAGS;
+
+    field = ID3FindField(frame, ID3_FIELD_TYPE_LANGUAGE);
+    if (field == NULL) {
+        id3_frame_delete(frame);
+        return -1;
+    }
+
+    status = id3_field_setlanguage(field, "ENG");
+    if (status != 0) {
+        flog(LOG_ERROR, "Failed to set field language.\n");
+        id3_frame_delete(frame);
+        return -1;
+    }
+
+     // Get the string list field of the frame.
+    field = ID3FindField(frame, ID3_FIELD_TYPE_STRINGFULL);
+    if (field == NULL) {
+        id3_frame_delete(frame);
+        return -1;
+    }
+
+    ucs4 = id3_utf8_ucs4duplicate(value);
+    if (ucs4 == NULL) {
+        flog(LOG_ERROR, "ucs4 dup error.\n");
+        id3_frame_delete(frame);
+        return -1;
+    }
+
+    status = id3_field_setfullstring(field, ucs4);
+    free(ucs4);
+    if (status != 0) {
+        flog(LOG_ERROR, "Failed to set field value (value = %s).\n", value);
+        id3_frame_delete(frame);
+        return -1;
+    }
+
+    /*
+     * Attach the frame to the tag.
+     */
+    status = id3_tag_attachframe(tags, frame);
+    if (status != 0) {
+        flog(LOG_ERROR, "Failed to attach frame (type = COMM).\n");
+        id3_frame_delete(frame);
+        return -1;
+    }
+
+    return 0;
+}
+
+int ID3AddTextFrame(struct id3_tag* tags, char const* type, id3_utf8_t const* value)
 {
     int status;
     struct id3_frame* frame = NULL;
@@ -60,69 +187,32 @@ int ID3AddFrame(struct id3_tag* tags, char const* type, id3_utf8_t const* value)
      */
     frame = id3_frame_new(type);
     if (frame == NULL) {
-        flog(LOG_ERROR, "Failed to create new frame (type = %s).\n",	type);
+        flog(LOG_ERROR, "Failed to create new frame (type = %s).\n", type);
         return -1;
     }
 
     frame->flags &= ~ID3_FRAME_FLAG_FORMATFLAGS;
 
-    if (strcmp(type, ID3_FRAME_COMMENT) == 0) {
-        field = ID3FindField(frame, ID3_FIELD_TYPE_LANGUAGE);
-        if (field == NULL) {
-            id3_frame_delete(frame);
-            return -1;
-        }
+     // Get the string list field of the frame.
+    field = ID3FindField(frame, ID3_FIELD_TYPE_STRINGLIST);
+    if (field == NULL) {
+        id3_frame_delete(frame);
+        return -1;
+    }
 
-        status = id3_field_setlanguage(field, "ENG");
-        if (status != 0) {
-            flog(LOG_ERROR, "Failed to set field value (value = %s).\n", value);
-            id3_frame_delete(frame);
-            return -1;
-        }
+    ucs4 = id3_utf8_ucs4duplicate(value);
+    if (ucs4 == NULL) {
+        flog(LOG_ERROR, "ucs4 dup error.\n");
+        id3_frame_delete(frame);
+        return -1;
+    }
 
-         // Get the string list field of the frame.
-        field = ID3FindField(frame, ID3_FIELD_TYPE_STRINGFULL);
-        if (field == NULL) {
-            id3_frame_delete(frame);
-            return -1;
-        }
-
-        ucs4 = id3_utf8_ucs4duplicate(value);
-        if (ucs4 == NULL) {
-            flog(LOG_ERROR, "ucs4 dup error.\n");
-            id3_frame_delete(frame);
-            return -1;
-        }
-
-        status = id3_field_setfullstring(field, ucs4);
-        free(ucs4);
-        if (status != 0) {
-            flog(LOG_ERROR, "Failed to set field value (value = %s).\n", value);
-            id3_frame_delete(frame);
-            return -1;
-        }
-    } else {
-         // Get the string list field of the frame.
-        field = ID3FindField(frame, ID3_FIELD_TYPE_STRINGLIST);
-        if (field == NULL) {
-            id3_frame_delete(frame);
-            return -1;
-        }
-
-        ucs4 = id3_utf8_ucs4duplicate(value);
-        if (ucs4 == NULL) {
-            flog(LOG_ERROR, "ucs4 dup error.\n");
-            id3_frame_delete(frame);
-            return -1;
-        }
-
-        status = id3_field_addstring(field, ucs4);
-        free(ucs4);
-        if (status != 0) {
-            flog(LOG_ERROR, "Failed to set field value (value = %s).\n", value);
-            id3_frame_delete(frame);
-            return -1;
-        }
+    status = id3_field_addstring(field, ucs4);
+    free(ucs4);
+    if (status != 0) {
+        flog(LOG_ERROR, "Failed to set field value (value = %s).\n", value);
+        id3_frame_delete(frame);
+        return -1;
     }
 
     /*
@@ -136,7 +226,7 @@ int ID3AddFrame(struct id3_tag* tags, char const* type, id3_utf8_t const* value)
     }
 
     return 0;
-    }
+}
 
 int ID3WriteTags(struct audioPlayer *player, PianoSong_t *song, char *station_name)
 {
@@ -162,13 +252,13 @@ int ID3WriteTags(struct audioPlayer *player, PianoSong_t *song, char *station_na
 
     // Add some data to the tag
 
-    status = ID3AddFrame(tags, ID3_FRAME_TITLE, (id3_utf8_t *)song->title);
-    status += ID3AddFrame(tags, ID3_FRAME_ARTIST, (id3_utf8_t *)song->artist);
-    status += ID3AddFrame(tags, ID3_FRAME_ALBUM, (id3_utf8_t *)song->album);
+    status = ID3AddTextFrame(tags, ID3_FRAME_TITLE, (id3_utf8_t *)song->title);
+    status += ID3AddTextFrame(tags, ID3_FRAME_ARTIST, (id3_utf8_t *)song->artist);
+    status += ID3AddTextFrame(tags, ID3_FRAME_ALBUM, (id3_utf8_t *)song->album);
     if (station_name) {
-        status += ID3AddFrame(tags, ID3_FRAME_COMMENT, (id3_utf8_t *)station_name);
+        status += ID3AddCommentFrame(tags, (id3_utf8_t *)station_name);
     }
-
+    status += ID3AddGainFrame(tags, song->fileGain);
     if (status != 0) {
         flog(LOG_ERROR, "Failed to add frames to tags.\n");
         id3_tag_delete(tags);
