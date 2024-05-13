@@ -1,11 +1,11 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.69])
+AC_PREREQ([2.71])
 AC_INIT([pianod],
-	174.10-sc,
+	[174.11-sc],
 	[pianod@lists.deviousfish.com],
-	,[http://deviousfish.com/pianod])
+	[],[http://deviousfish.com/pianod])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
 AC_CONFIG_HEADERS([config.h])
 
@@ -121,12 +121,9 @@ AC_SEARCH_LIBS([crypt],[crypt], [],
 
 # IPv6 support
 AC_MSG_CHECKING([PF_INET6/IPv6 support])
-AC_TRY_COMPILE([#include <sys/socket.h>],
-       [ int f = PF_INET6; ],
-       [ AC_MSG_RESULT(yes)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/socket.h>]], [[ int f = PF_INET6; ]])],[ AC_MSG_RESULT(yes)
 	 AC_DEFINE(HAVE_IPV6, [1],
-		   [Define this symbol if you have IPV6 support]) ],
-       [ AC_MSG_RESULT(no)])
+		   [Define this symbol if you have IPV6 support]) ],[ AC_MSG_RESULT(no)])
 
 # res_init availability
 AC_SEARCH_LIBS([res_init],[resolv])
@@ -152,20 +149,14 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([
 # There are 'net references to an SO_NOSIGNAL, but I suspect it is an
 # erroneous portmanteau of the other two.
 AC_MSG_CHECKING([MSG_NOSIGNAL])
-AC_TRY_COMPILE([#include <sys/socket.h>],
-       [ int f = MSG_NOSIGNAL; ],
-       [ AC_MSG_RESULT(yes)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/socket.h>]], [[ int f = MSG_NOSIGNAL; ]])],[ AC_MSG_RESULT(yes)
 	 AC_DEFINE(HAVE_MSG_NOSIGNAL, [1],
-		   [Define this symbol if you have MSG_NOSIGNAL]) ],
-       [ AC_MSG_RESULT(no)])
+		   [Define this symbol if you have MSG_NOSIGNAL]) ],[ AC_MSG_RESULT(no)])
 
 AC_MSG_CHECKING([SO_NOSIGPIPE])
-AC_TRY_COMPILE([#include <sys/socket.h>],
-       [ int f = SO_NOSIGPIPE; ],
-       [ AC_MSG_RESULT(yes)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/socket.h>]], [[ int f = SO_NOSIGPIPE; ]])],[ AC_MSG_RESULT(yes)
 	 AC_DEFINE(HAVE_SO_NOSIGPIPE, [1],
-		   [Define this symbol if you have SO_NOSIGPIPE]) ],
-       [ AC_MSG_RESULT(no)])
+		   [Define this symbol if you have SO_NOSIGPIPE]) ],[ AC_MSG_RESULT(no)])
 
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h crypt.h gcrypt.h limits.h netdb.h netinet/in.h stdint.h stdlib.h string.h strings.h sys/socket.h unistd.h json-c/json.h json/json.h json.h])

@@ -796,7 +796,7 @@ static WaitressReturn_t WaitressTlsVerify (const WaitressHandle_t *waith) {
 		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
-#if MBEDTLS_VERSION_NUMBER >= 0x02070000
+#if (MBEDTLS_VERSION_NUMBER >= 0x0207000) && (MBEDTLS_VERSION_NUMBER < 0x03000000)
 	mbedtls_sha1_ret (cert->raw.p, cert->raw.len, fingerprint);
 #else
 	mbedtls_sha1 (cert->raw.p, cert->raw.len, fingerprint);
