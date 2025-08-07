@@ -58,6 +58,7 @@
 			<Add library="mbedcrypto" />
 			<Add library="mbedx509" />
 			<Add library="id3tag" />
+			<Add library="m" />
 		</Linker>
 		<Unit filename="config.h" />
 		<Unit filename="src/command.c">
@@ -181,9 +182,6 @@
 		</Unit>
 		<Unit filename="src/users.h" />
 		<Extensions>
-			<envvars />
-			<code_completion />
-			<debugger />
 			<lib_finder disable_auto="1" />
 		</Extensions>
 	</Project>

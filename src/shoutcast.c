@@ -176,19 +176,19 @@ int sc_stream_setup(sc_service *svc, char *station_name)
 		flog(LOG_ERROR, "%s: shout_set_mount(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
-	if (shout_set_format(shout, SHOUT_FORMAT_MP3) != SHOUTERR_SUCCESS) {
+	if (shout_set_content_format(shout, SHOUT_FORMAT_MP3, SHOUT_USAGE_AUDIO, NULL) != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_format(MP3): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
-	if (shout_set_name(shout, "PandoraRadio") != SHOUTERR_SUCCESS) {
+	if (shout_set_meta(shout, "name", "PandoraRadio") != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_name(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
-	if (shout_set_url(shout, "http://www.pandora.com") != SHOUTERR_SUCCESS) {
+	if (shout_set_meta(shout, "url", "http://www.pandora.com") != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_url(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
-	if (shout_set_genre(shout, "eclectic") != SHOUTERR_SUCCESS) {
+	if (shout_set_meta(shout, "genre", "eclectic") != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_genre(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
@@ -196,7 +196,7 @@ int sc_stream_setup(sc_service *svc, char *station_name)
 		// whatever
 		station_name = "Things I listen to";
 	}
-	if (shout_set_description(shout, station_name) != SHOUTERR_SUCCESS) {
+	if (shout_set_meta(shout, "description", station_name) != SHOUTERR_SUCCESS) {
 		flog(LOG_ERROR, "%s: shout_set_description(): %s", ourname, shout_get_error(shout));
 		return -1;
 	}
@@ -398,7 +398,7 @@ int sc_set_metadata(sc_service *svc, PianoSong_t *song)
 					shout_get_error(shout));
 		}
 #endif
-		if (shout_set_metadata(svc->shout, sc_meta) != SHOUTERR_SUCCESS) {
+		if (shout_set_metadata_utf8(svc->shout, sc_meta) != SHOUTERR_SUCCESS) {
 			flog(LOG_ERROR, "%s: shout_set_metadata(): %s", ourname,
 					shout_get_error(shout));
 		}

@@ -49,7 +49,7 @@ int ID3WriteTags(struct audioPlayer *player, PianoSong_t *song, char *station_na
 
 /* pandora uses float values with 2 digits precision. Scale them by 100 to get
  * a "nice" integer */
-#define RG_SCALE_FACTOR 100
+#define RG_SCALE_FACTOR 100.0
 
 #define PANDORA_MP3_BITRATE 192000
 
@@ -87,7 +87,7 @@ static bool BarPlayerCheckPauseQuit (struct audioPlayer *player) {
  *	@return this * yourvalue = newgain value
  */
 unsigned int BarPlayerCalcScale (const float applyGain) {
-	return pow(10.0, applyGain / 20.0) * RG_SCALE_FACTOR;
+	return powf(10.0, applyGain / 20.0) * RG_SCALE_FACTOR;
 }
 
 /*	apply replaygain to signed short value

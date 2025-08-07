@@ -31,7 +31,7 @@ typedef enum log_types_t {
 } LOG_TYPE;
 
 /* Logging */
-extern void set_logging (unsigned logtype);
+extern void set_logging (LOG_TYPE logtype);
 extern void vflog (LOG_TYPE level, const char *format, va_list parameters);
 extern void flog (LOG_TYPE level, const char *format, ...); /* A little S&M is always good... */
 

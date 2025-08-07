@@ -177,7 +177,7 @@ int BarUiPianoCall (APPSTATE * const app, PianoRequestType_t type,
 bool piano_transaction (APPSTATE *app, FB_EVENT *event, PianoRequestType_t type, void *data) {
 	PianoReturn_t pRet;
 	WaitressReturn_t wRet;
-	
+
 	assert (app);
 	assert (type);
 
@@ -270,7 +270,7 @@ static bool check_for_station_changes (APPSTATE *app, PianoStation_t *old_statio
 	bool station_added = false;
 	bool station_removed = false;
 	PianoStation_t *past, *present;
-	
+
 	/* Check for stations removed. */
 	past = old_stations;
 	PianoListForeachP (past) {
@@ -312,17 +312,17 @@ static bool check_for_station_changes (APPSTATE *app, PianoStation_t *old_statio
 bool update_station_list (APPSTATE *app) {
 	assert (app);
 	bool ret;
-	
+
 	if (app->update_station_list >= time (NULL)) {
 		/* Use existing list */
 		return (app->ph.stations != NULL);
 	}
-	
+
 	/* libpiano assumes the station list doesn't change except under its control. */
 	/* We have to play around to check for this.  First, stash the old station list */
 	PianoStation_t *oldStations = app->ph.stations;
 	app->ph.stations = NULL;
-	
+
 	/* Retrieve the new list. */
 	/* On success, keep the new list; on failure, use the old list. */
 	flog (LOG_GENERAL, "Retrieving/updating station list");
@@ -369,14 +369,14 @@ void set_pandora_user (APPSTATE *app, FB_EVENT *event) {
 	reqData.step = 0;
 
 	app->retry_login_time = 0;
-	
+
 	/* Some systems cache the DNS configuration in a global/static variable. */
 	/* If pianod is started at boot, DNS might not be up, these systems get */
 	/* stuck bad data gets cached. Call the init routine manually to get updates. */
 #ifdef HAVE_RES_INIT
 	res_init();
 #endif
-	
+
     bool changed = !app->settings.pandora.username ||
         strcmp (app->settings.pandora.username, app->settings.pending.username) != 0 ||
         strcmp (app->settings.pandora.password, app->settings.pending.password) != 0;
@@ -392,7 +392,7 @@ void set_pandora_user (APPSTATE *app, FB_EVENT *event) {
 			data_reply (event, E_REQUESTPENDING, WaitressErrorToStr (wRet));
 		}
 		/* Transient error; retry login again later. */
-		app->retry_login_time = time(NULL) + app->settings.pandora_retry; 
+		app->retry_login_time = time(NULL) + app->settings.pandora_retry;
 		return;
 	} else if (pRet == PIANO_RET_INVALID_LOGIN) {
 		/* Throw away the bad credentials. */
@@ -412,7 +412,7 @@ void set_pandora_user (APPSTATE *app, FB_EVENT *event) {
 		app->retry_login_time = time(NULL) + app->settings.pandora_retry;
 		return;
 	}
-	
+
 	/* On success, update credentials on file */
 	destroy_pandora_credentials(&app->settings.pandora);
 	app->settings.pandora = app->settings.pending;
@@ -444,7 +444,7 @@ bool validate_station_list (APPSTATE *app, FB_EVENT *event, char * const*station
 	assert (app);
 	assert (event);
 	assert (stations);
-	
+
 	bool response = true;
 	PianoStation_t *station;
 	while (*stations) {
@@ -453,7 +453,7 @@ bool validate_station_list (APPSTATE *app, FB_EVENT *event, char * const*station
 				send_data (event, I_STATION_INVALID, station->name);
 				response = false;
 			}
-		} else {	
+		} else {
 			send_data (event, I_NOTFOUND, *stations);
 			response = false;
 		}
@@ -528,7 +528,7 @@ bool pwn_station (APPSTATE *app, FB_EVENT *event, const char *stationId) {
 	assert (app);
 	assert (event);
 	assert (stationId);
-	
+
 	PianoStation_t *station = PianoFindStationById (app->ph.stations, stationId);
 	if (!station) {
 		data_reply (event, I_NOTFOUND, "Station not found");
@@ -561,7 +561,7 @@ bool skips_are_available (APPSTATE *app, FB_EVENT *event, char *station) {
 	assert (app);
 	assert (event);
 	assert (station);
-	
+
 	static SKIP_HISTORY *skip_history;
 	bool skip_available = false;
 	int skip_count = 0;
@@ -594,7 +594,7 @@ bool skips_are_available (APPSTATE *app, FB_EVENT *event, char *station) {
 			}
 		}
 	}
-	
+
 	if (skip_count < MAX_SKIPS) {
 		if ((skip = (SKIP_HISTORY *) calloc (sizeof (SKIP_HISTORY), 1))) {
 			if ((skip->station = strdup (station))) {
@@ -646,7 +646,7 @@ void cancel_playback (APPSTATE *app) {
 
 void generate_test_tone (APPSTATE *app, FB_EVENT *event) {
 	int audioOutDriver = -1;
-	
+
 	/* Find driver, or use default if unspecified. */
 	audioOutDriver = app->settings.output_driver ? ao_driver_id (app->settings.output_driver)
 					 : ao_default_driver_id();
@@ -656,14 +656,14 @@ void generate_test_tone (APPSTATE *app, FB_EVENT *event) {
 							app->settings.output_driver ? app->settings.output_driver : "(default)");
 		return;
 	}
-	
+
 	ao_sample_format format;
 	memset (&format, 0, sizeof (format));
 	format.bits = 16;
 	format.channels = 2;
 	format.rate = AO_TEST_SAMPLE_FREQ;
 	format.byte_format = AO_FMT_NATIVE;
-	
+
 	/* Create a list of ao_options */
 	ao_option *options = NULL;
 	ao_append_option(&options, "client_name", PACKAGE);
@@ -676,7 +676,7 @@ void generate_test_tone (APPSTATE *app, FB_EVENT *event) {
 	if (app->settings.output_server) {
 		ao_append_option (&options, "server", app->settings.output_server);
 	}
-	
+
 	ao_device *device = ao_open_live (audioOutDriver, &format, options);
 	if (device == NULL) {
 		fb_fprintf (event,
@@ -692,14 +692,14 @@ void generate_test_tone (APPSTATE *app, FB_EVENT *event) {
 		return;
 	}
 	ao_free_options (options);
-	
+
 	/* Create the test tone. */
-	int16_t tone [AO_TEST_SAMPLE_FREQ * AO_TEST_DURATION * 2];	
+	int16_t tone [AO_TEST_SAMPLE_FREQ * AO_TEST_DURATION * 2];
 	for (int i = 0; i < countof (tone); i++) {
 		tone [i] = (int16_t)(32767.0 *
-							sin(2 * M_PI * AO_TEST_FREQUENCY * ((float) i/AO_TEST_SAMPLE_FREQ)));
+							sinf(2 * M_PI * AO_TEST_FREQUENCY * ((float) i/AO_TEST_SAMPLE_FREQ)));
 	}
-	
+
 	ao_play(device, (char *) tone, sizeof (tone));
 	ao_close(device);
 	reply (event, S_OK);
